@@ -11,6 +11,7 @@
     <PackageProjectUrl>https://github.com/webbersmak/Orvina</PackageProjectUrl>
     <PackageTags>search;.NET 6;grep;text;query;index;</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
   </PropertyGroup>
 
 </Project>
