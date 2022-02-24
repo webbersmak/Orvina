@@ -210,7 +210,7 @@ namespace Orvina.Console
                     searchPath = args[0];
                     searchText = args[1];
                     fileExtensions = args.Length < 3 //not enough args to consider this
-                        || (args.Length == 3 && !nosubFlag && !debugFlag) 
+                        || (args.Length == 3 && (nosubFlag || debugFlag)) 
                         || (args.Length == 4 && nosubFlag && debugFlag)
                          ? new string[] { } : args[2].Split(',');
                     includeSubdirectories = !nosubFlag;
