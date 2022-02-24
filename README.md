@@ -38,14 +38,14 @@ This is a high performance text search application written in C#. Speed, ease of
     
 # Under the hood
 
-Orvina.Engine makes heavy, yet careful use of multitthreading to provide the quickest results possible on your machin. While no amount of multithreading can fix a slow disk (I/O reads), care was taken to allow the disk to be as efficient as possible.
+Orvina.Engine is multithreaded to build the result list as quickly as possible on your machine. While no amount of multithreading can fix a slow disk (I/O reads), care was taken to allow the disk to be as efficient as possible.
 
 ### Directory Thread 
 
-This is the first thread to execute and there is only 1 thread of this type. It recursively scans the root folder and its subfolders. While scanning the folder tree, it also tracks a shared list of any files that have the desire file extension(s). Such as .cs or .js.
+This is the first thread to run and there is only 1 thread of this type. It recursively scans the root folder and its subfolders. While scanning the folder tree, it also tracks a shared list of files that have the desire file extension(s). Such as .cs or .js.
 
 ### Search Threads
 
-On a modern machine, there can be many of these threads. Threads of this type will monitor the shared list, select a file, and attempt a full read of that file. The reads are synchronized such that only 1 thread may read a file at a time. While that sounds like "anti performance", it allows the disk, which is almost always the bottleneck, to focus 1 job. Once the file contents are in memory, the Search Thread can go full speed looking for the search string.
+On a modern machine with many CPU cores, there can be many of these threads. Threads of this type will monitor the shared list, select a file, and attempt a full read of that file. The reads are synchronized such that only 1 thread may read a file at a time. While that sounds like "anti performance", it allows the disk, which is almost always the bottleneck, to focus one job. Once the file contents are in memory, the disk is released, and the Search Thread can run full speed looking for the search string.
 
 In the event that the file is too large to be read into memory, the Search Thread will fall back to a line by line read of the file.
