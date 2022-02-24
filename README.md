@@ -16,7 +16,7 @@ This is a high performance text search application written in C#. Speed, ease of
     5. When the search completes, you may enter the (Id) of the file containing matching text to open it.
 
 2. **Orvina.Engine**
-    1. Class Library
+    1. Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
     2. The only dependency of Orvina.Console
     3. Example usage:
     ```
