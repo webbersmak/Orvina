@@ -2,7 +2,7 @@
 
 ## Introduction
 
-This is a high performance text search application. Speed, ease of use, and robustness were all accounted for during the development of Orvina. This repository contains 2 projects: 
+This is a high performance text search application written in C#. Speed, ease of use, and robustness were all accounted for during the development of Orvina. This repository contains 2 projects: 
 
 1. **Orvina.Console**
     1. Console Application
