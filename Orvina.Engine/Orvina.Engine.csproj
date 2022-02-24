@@ -4,6 +4,13 @@
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Authors>webbersmak</Authors>
+    <Company />
+    <Description>High performance text search engine on .NET 6. Grep-like but not grep. </Description>
+    <RepositoryUrl>https://github.com/webbersmak/Orvina</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/webbersmak/Orvina</PackageProjectUrl>
+    <PackageTags>search;.NET 6;grep;text;query;index;</PackageTags>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
 </Project>
