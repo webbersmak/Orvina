@@ -5,10 +5,10 @@
 This is a high performance text search application written in C#. Speed, ease of use, and robustness were all accounted for during the development of Orvina. This repository contains 2 projects: 
 
 1. **Orvina.Console**
-    1. Console Application
-    2. Builds the application for searching files for text
-    3. The output will list the files containing the search text and show the lines of the file containing the search text 
-    4. Example usage:
+    - Console Application
+    - Builds the application for searching files for text
+    - The output will list the files containing the search text and show the lines of the file containing the search text 
+    - Example usage:
     
     ```
     orvina.exe "C:\my files" "search text" .cs,js
@@ -18,9 +18,9 @@ This is a high performance text search application written in C#. Speed, ease of
     ![orvina_finished.png](/orvina_finished.png)
 
 2. **Orvina.Engine**
-    1. Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
-    2. The only dependency of Orvina.Console
-    3. Example usage:
+    - Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
+    - The only dependency of Orvina.Console
+    - Example usage:
     ```
      using (var search = new Orvina.Engine.SearchEngine())
     {
