@@ -13,7 +13,9 @@ This is a high performance text search application written in C#. Speed, ease of
     ```
     orvina.exe "C:\my files" "search text" .cs,js
     ```
-    5. When the search completes, you may enter the (Id) of the file containing matching text to open it.
+    5. When the search completes, you may enter the (Id) of the file containing matching text to open it 
+    
+    ![orvina_finished.png](/orvina_finished.png)
 
 2. **Orvina.Engine**
     1. Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
