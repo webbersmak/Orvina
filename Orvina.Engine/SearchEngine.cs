@@ -4,17 +4,19 @@
     {
         private readonly object diskLock = new();
         private readonly object endLock = new();
+        private readonly List<Event> eventsList = new();
         private readonly List<string> files = new();
         private readonly List<Task> tasks = new();
 
         private List<string> fileExtensions;
 
-        private int taskCount;
-        private bool searchEnded;
-
         private int finishedTasks;
         private bool listingDirectory;
+        private bool searchEnded;
         private bool stop;
+        private int taskCount;
+
+        public bool RaiseErrors { set; private get; }
 
         /// <summary>
         /// returns error message
@@ -122,6 +124,45 @@
             }
         }
 
+        private void DequeueEvents()
+        {
+            while (!searchEnded && !stop)
+            {
+                lock (eventsList)
+                {
+                    eventsList.ForEach(e =>
+                    {
+                        switch (e.EventType)
+                        {
+                            case Event.EventTypes.OnProgress:
+                                this.OnProgress?.Invoke(((OnProgressEvent)e).File);
+                                break;
+
+                            case Event.EventTypes.OnFileFound:
+                                var fileEvent = (OnFileFoundEvent)e;
+                                this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                                break;
+
+                            case Event.EventTypes.OnSearchComplete:
+                                this.searchEnded = true;
+                                this.OnSearchComplete?.Invoke();
+                                break;
+
+                            case Event.EventTypes.OnError:
+                                this.OnError?.Invoke(((OnErrorEvent)e).Error);
+                                break;
+                        }
+                    });
+                    eventsList.Clear();
+
+                    if (!searchEnded && !stop)
+                    {
+                        Monitor.Wait(eventsList);
+                    }
+                }
+            }
+        }
+
         private void ListDirectory(string path, bool includeSubirectories)
         {
             if (stop)
@@ -153,7 +194,19 @@
             }
             catch (Exception e)
             {
-                QueueEvent(new OnErrorEvent(e.ToString()));
+                if (RaiseErrors)
+                {
+                    QueueEvent(new OnErrorEvent(e.ToString()));
+                }
+            }
+        }
+
+        private void QueueEvent(Event eventType)
+        {
+            lock (eventsList)
+            {
+                eventsList.Add(eventType);
+                Monitor.Pulse(eventsList);
             }
         }
 
@@ -246,7 +299,10 @@
                     }
                     catch (Exception e)
                     {
-                        QueueEvent(new OnErrorEvent(e.ToString()));
+                        if (RaiseErrors)
+                        {
+                            QueueEvent(new OnErrorEvent(e.ToString()));
+                        }
                     }
 
                     if (matchingLines.Any())
@@ -266,56 +322,6 @@
                 if (finishedTasks == taskCount)
                 {
                     QueueEvent(new OnSearchCompleteEvent());
-                }
-            }
-        }
-
-        private readonly List<Event> eventsList = new();
-
-        private void QueueEvent(Event eventType)
-        {
-            lock (eventsList)
-            {
-                eventsList.Add(eventType);
-                Monitor.Pulse(eventsList);
-            }
-        }
-
-        private void DequeueEvents()
-        {
-            while (!searchEnded && !stop)
-            {
-                lock (eventsList)
-                {
-                    eventsList.ForEach(e =>
-                    {
-                        switch (e.EventType)
-                        {
-                            case Event.EventTypes.OnProgress:
-                                this.OnProgress?.Invoke(((OnProgressEvent)e).File);
-                                break;
-
-                            case Event.EventTypes.OnFileFound:
-                                var fileEvent = (OnFileFoundEvent)e;
-                                this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
-                                break;
-
-                            case Event.EventTypes.OnSearchComplete:
-                                this.searchEnded = true;
-                                this.OnSearchComplete?.Invoke();
-                                break;
-
-                            case Event.EventTypes.OnError:
-                                this.OnError?.Invoke(((OnErrorEvent)e).Error);
-                                break;
-                        }
-                    });
-                    eventsList.Clear();
-
-                    if (!searchEnded && !stop)
-                    {
-                        Monitor.Wait(eventsList);
-                    }
                 }
             }
         }

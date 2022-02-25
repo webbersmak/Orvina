@@ -2,7 +2,7 @@
 {
     internal abstract class Event
     {
-        public EventTypes EventType { get; private set; }
+        public readonly EventTypes EventType;
 
         public Event(EventTypes eventType)
         {
@@ -18,17 +18,17 @@
         }
     }
 
-    internal class OnErrorEvent : Event
+    internal sealed class OnErrorEvent : Event
     {
         public OnErrorEvent(string error) : base(Event.EventTypes.OnError)
         {
             this.Error = error;
         }
 
-        public string Error { get; private set; }
+        public readonly string Error;
     }
 
-    internal class OnFileFoundEvent : Event
+    internal sealed class OnFileFoundEvent : Event
     {
         public OnFileFoundEvent(string file, List<string> lines) : base(Event.EventTypes.OnFileFound)
         {
@@ -36,21 +36,21 @@
             this.Lines = lines;
         }
 
-        public string File { get; private set; }
-        public List<string> Lines { get; private set; }
+        public readonly string File;
+        public readonly List<string> Lines;
     }
 
-    internal class OnProgressEvent : Event
+    internal sealed class OnProgressEvent : Event
     {
         public OnProgressEvent(string file) : base(Event.EventTypes.OnProgress)
         {
             this.File = file;
         }
 
-        public string File { get; private set; }
+        public readonly string File;
     }
 
-    internal class OnSearchCompleteEvent : Event
+    internal sealed class OnSearchCompleteEvent : Event
     {
         public OnSearchCompleteEvent() : base(Event.EventTypes.OnSearchComplete)
         {

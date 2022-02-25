@@ -126,6 +126,8 @@ namespace Orvina.Console
                 search.OnSearchComplete += Search_OnSearchComplete;
                 search.OnProgress += Search_OnProgress;
 
+                search.RaiseErrors = showErrors;
+
                 WriteLine("searching...('q' to quit)\n");
                 stopwatch.Start();
                 search.Start(searchPath, includeSubdirectories, searchText, fileExtensions);
@@ -165,13 +167,17 @@ namespace Orvina.Console
                         {
                             if (fileMap.ContainsKey(result))
                             {
-                                fileOpened = true;
                                 var file = fileMap[result];
 
                                 WriteLine($"Opening {file}...\n");
-                                using (var p = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }))
+                                try
                                 {
-                                };
+                                    using (var p = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }))
+                                    {
+                                        fileOpened = true;
+                                    };
+                                }
+                                catch { }
                             }
                         }
 
