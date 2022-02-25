@@ -5,7 +5,6 @@
         private readonly object diskLock = new();
         private readonly object endLock = new();
         private readonly List<string> files = new();
-        private readonly object notificationLock = new();
         private readonly List<Task> tasks = new();
 
         private List<string> fileExtensions;
@@ -13,9 +12,9 @@
         private int taskCount;
         private bool searchEnded;
 
-        private volatile int finishedTasks;
-        private volatile bool listingDirectory;
-        private volatile bool stop;
+        private int finishedTasks;
+        private bool listingDirectory;
+        private bool stop;
 
         /// <summary>
         /// returns error message
@@ -47,7 +46,7 @@
                 //saw a bug (windows?) where a completed thread still showed as running
                 //this while() will let threads finish up if they needed a few
                 //extra microseconds to update their status
-                while (tasks.Any(t => t.Status == TaskStatus.Running)) { }
+                Task.WaitAll(tasks.ToArray());
                 tasks.ForEach(t => { t.Dispose(); });
             }
         }
@@ -61,7 +60,7 @@
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
         {
-            if (tasks.Any(t => t.Status != TaskStatus.RanToCompletion))
+            if (tasks.Any(t => !t.IsCompletedSuccessfully))
             {
                 //looks like the search is already running...
                 return;
@@ -73,21 +72,32 @@
                 tasks.Clear();
             }
 
+            eventsList.Clear();
             stop = false;
             searchEnded = false;
             finishedTasks = 0;
             listingDirectory = true;
 
             this.fileExtensions = fileExtensions.ToList();
-            this.taskCount = Environment.ProcessorCount > 1 ? Environment.ProcessorCount : 2;
+            this.taskCount = Environment.ProcessorCount > 2 ? Environment.ProcessorCount : 3;
 
+            //directory thread
             tasks.Add(Task.Run(() =>
             {
                 ListDirectory(searchPath, includeSubirectories);
                 listingDirectory = false;
                 TryNotifySearchEnded();
+
+                lock (files)
+                {
+                    Monitor.PulseAll(files);
+                }
             }));
 
+            //notification thread
+            tasks.Add(Task.Run(() => DequeueEvents()));
+
+            //search threads
             for (var i = 1; i < taskCount; i++)
             {
                 tasks.Add(Task.Run(() =>
@@ -105,6 +115,11 @@
         public void Stop()
         {
             stop = true; //let threads run to completion
+
+            lock (eventsList)
+            {
+                Monitor.Pulse(eventsList);
+            }
         }
 
         private void ListDirectory(string path, bool includeSubirectories)
@@ -114,8 +129,7 @@
                 return;
             }
 
-            lock (notificationLock)
-                OnProgress?.Invoke(path);
+            QueueEvent(new OnProgressEvent(path));
 
             try
             {
@@ -125,6 +139,7 @@
                     lock (files)
                     {
                         files.AddRange(filesToAdd);
+                        Monitor.PulseAll(files);
                     }
                 }
 
@@ -138,8 +153,7 @@
             }
             catch (Exception e)
             {
-                lock (notificationLock)
-                    OnError?.Invoke(e.ToString());
+                QueueEvent(new OnErrorEvent(e.ToString()));
             }
         }
 
@@ -163,14 +177,17 @@
                         files.RemoveAt(0);
                         fileCount--;
                     }
+                    else if (listingDirectory)
+                    {
+                        Monitor.Wait(files);
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(target))
                 {
                     try
                     {
-                        lock (notificationLock)
-                            OnProgress?.Invoke(Path.GetFileName(target));
+                        QueueEvent(new OnProgressEvent(Path.GetFileName(target)));
 
                         try //bulk read
                         {
@@ -229,15 +246,12 @@
                     }
                     catch (Exception e)
                     {
-                        lock (notificationLock)
-                            OnError?.Invoke(e.ToString());
+                        QueueEvent(new OnErrorEvent(e.ToString()));
                     }
 
                     if (matchingLines.Any())
                     {
-                        lock (notificationLock)
-                            OnFileFound?.Invoke(target, matchingLines);
-
+                        QueueEvent(new OnFileFoundEvent(target, new List<string>(matchingLines)));
                         matchingLines.Clear();
                     }
                 }
@@ -249,11 +263,59 @@
             lock (endLock)
             {
                 finishedTasks++;
-                if (!searchEnded && finishedTasks == taskCount)
+                if (finishedTasks == taskCount)
                 {
-                    searchEnded = true;
-                    lock (notificationLock)
-                        OnSearchComplete?.Invoke();
+                    QueueEvent(new OnSearchCompleteEvent());
+                }
+            }
+        }
+
+        private readonly List<Event> eventsList = new();
+
+        private void QueueEvent(Event eventType)
+        {
+            lock (eventsList)
+            {
+                eventsList.Add(eventType);
+                Monitor.Pulse(eventsList);
+            }
+        }
+
+        private void DequeueEvents()
+        {
+            while (!searchEnded && !stop)
+            {
+                lock (eventsList)
+                {
+                    eventsList.ForEach(e =>
+                    {
+                        switch (e.EventType)
+                        {
+                            case Event.EventTypes.OnProgress:
+                                this.OnProgress?.Invoke(((OnProgressEvent)e).File);
+                                break;
+
+                            case Event.EventTypes.OnFileFound:
+                                var fileEvent = (OnFileFoundEvent)e;
+                                this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                                break;
+
+                            case Event.EventTypes.OnSearchComplete:
+                                this.searchEnded = true;
+                                this.OnSearchComplete?.Invoke();
+                                break;
+
+                            case Event.EventTypes.OnError:
+                                this.OnError?.Invoke(((OnErrorEvent)e).Error);
+                                break;
+                        }
+                    });
+                    eventsList.Clear();
+
+                    if (!searchEnded && !stop)
+                    {
+                        Monitor.Wait(eventsList);
+                    }
                 }
             }
         }
