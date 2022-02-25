@@ -9,9 +9,11 @@
     <Description>High performance text search engine on .NET 6. Grep-like but not grep. </Description>
     <RepositoryUrl>https://github.com/webbersmak/Orvina</RepositoryUrl>
     <PackageProjectUrl>https://github.com/webbersmak/Orvina</PackageProjectUrl>
-    <PackageTags>search;.NET 6;grep;text;query;index;</PackageTags>
+    <PackageTags>search;.NET6;grep;text;query;index;</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReleaseNotes>Micro-optimizations</PackageReleaseNotes>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
 </Project>
