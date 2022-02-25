@@ -11,7 +11,7 @@ This is a high performance text search application written in C#. Speed, ease of
     - Example usage:
     
     ```
-    orvina.console.exe "C:\my files" "search text" .cs,js
+    orvina.console.exe "C:\my files" "search text" .cs,.js
     ```
     5. When the search completes, you may enter the (Id) of the file containing matching text to open it 
     
