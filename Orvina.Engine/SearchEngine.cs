@@ -126,7 +126,7 @@
 
         private void DequeueEvents()
         {
-            while (!searchEnded && !stop)
+            while (!searchEnded)
             {
                 lock (eventsList)
                 {
@@ -155,7 +155,7 @@
                     });
                     eventsList.Clear();
 
-                    if (!searchEnded && !stop)
+                    if (!searchEnded)
                     {
                         Monitor.Wait(eventsList);
                     }
