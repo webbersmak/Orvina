@@ -256,15 +256,15 @@
                                 var lineNum = 0;
                                 foreach (var line in all.Split("\n"))
                                 {
+                                    if (stop)
+                                    {
+                                        break;
+                                    }
+
                                     lineNum++;
                                     if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
                                     {
                                         matchingLines.Add($"({lineNum}) " + line);
-                                    }
-
-                                    if (stop)
-                                    {
-                                        break;
                                     }
                                 }
                             }
@@ -276,19 +276,11 @@
                                 using (TextReader reader = new StreamReader(target))
                                 {
                                     string line;
-                                    do
-                                    {
-                                        line = reader.ReadLine();
-                                        if (line != null && line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                                        {
+                                    while ((line = reader.ReadLine()) != null && !stop) {
+                                        if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase)) {
                                             matchingLines.Add(line);
                                         }
-
-                                        if (stop)
-                                        {
-                                            break;
-                                        }
-                                    } while (line != null);
+                                    }
                                 }
                             }
                             catch
