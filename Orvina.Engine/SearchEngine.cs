@@ -49,7 +49,7 @@
                 //this while() will let threads finish up if they needed a few
                 //extra microseconds to update their status
                 Task.WaitAll(tasks.ToArray());
-                tasks.ForEach(t => { t.Dispose(); });
+                tasks.ForEach(t => t.Dispose());
             }
         }
 
@@ -97,7 +97,7 @@
             }));
 
             //notification thread
-            tasks.Add(Task.Run(() => DequeueEvents()));
+            tasks.Add(Task.Run(DequeueEvents));
 
             //search threads
             for (var i = 1; i < taskCount; i++)
