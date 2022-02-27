@@ -126,40 +126,52 @@
 
         private void DequeueEvents()
         {
+            var queue = new List<Event>();
+
             while (!searchEnded)
             {
                 lock (eventsList)
                 {
-                    eventsList.ForEach(e =>
-                    {
-                        switch (e.EventType)
-                        {
-                            case Event.EventTypes.OnProgress:
-                                this.OnProgress?.Invoke(((OnProgressEvent)e).File);
-                                break;
-
-                            case Event.EventTypes.OnFileFound:
-                                var fileEvent = (OnFileFoundEvent)e;
-                                this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
-                                break;
-
-                            case Event.EventTypes.OnSearchComplete:
-                                this.searchEnded = true;
-                                this.OnSearchComplete?.Invoke();
-                                break;
-
-                            case Event.EventTypes.OnError:
-                                this.OnError?.Invoke(((OnErrorEvent)e).Error);
-                                break;
-                        }
-                    });
+                    queue.AddRange(eventsList);
                     eventsList.Clear();
-
-                    if (!searchEnded)
+                    if (!queue.Any())
                     {
                         Monitor.Wait(eventsList);
                     }
                 }
+
+                foreach (var e in queue)
+                {
+                    if (stop)
+                    {
+                        this.searchEnded = true;
+                        this.OnSearchComplete?.Invoke();
+                        break;
+                    }
+
+                    switch (e.EventType)
+                    {
+                        case Event.EventTypes.OnProgress:
+                            this.OnProgress?.Invoke(((OnProgressEvent)e).File);
+                            break;
+
+                        case Event.EventTypes.OnFileFound:
+                            var fileEvent = (OnFileFoundEvent)e;
+                            this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                            break;
+
+                        case Event.EventTypes.OnSearchComplete:
+                            this.searchEnded = true;
+                            this.OnSearchComplete?.Invoke();
+                            break;
+
+                        case Event.EventTypes.OnError:
+                            this.OnError?.Invoke(((OnErrorEvent)e).Error);
+                            break;
+                    }
+                }
+
+                queue.Clear();
             }
         }
 
@@ -276,8 +288,10 @@
                                 using (TextReader reader = new StreamReader(target))
                                 {
                                     string line;
-                                    while ((line = reader.ReadLine()) != null && !stop) {
-                                        if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase)) {
+                                    while ((line = reader.ReadLine()) != null && !stop)
+                                    {
+                                        if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                                        {
                                             matchingLines.Add(line);
                                         }
                                     }
