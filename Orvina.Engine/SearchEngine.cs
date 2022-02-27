@@ -186,7 +186,7 @@
 
             try
             {
-                var filesToAdd = Directory.GetFiles(path).Where(file => !fileExtensions.Any() || fileExtensions.Any(t => file.EndsWith(t))).ToList();
+                var filesToAdd = Directory.GetFiles(path).Where(file => fileExtensions.Any(t => file.EndsWith(t) || !fileExtensions.Any()));
                 if (filesToAdd.Any())
                 {
                     lock (files)
