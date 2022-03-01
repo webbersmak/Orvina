@@ -83,31 +83,30 @@
             listingFiles = true;
 
             this.fileExtensions = fileExtensions;
-            this.taskCount = Environment.ProcessorCount > 2 ? Environment.ProcessorCount : 3;
 
-            tasks.Add(Task.Run(()=> { 
+            var baseCount = 4;
+            this.taskCount = baseCount + (Environment.ProcessorCount > baseCount ? Environment.ProcessorCount - baseCount : 0);
+
+            //directory thread
+            tasks.Add(Task.Run(() =>
+            {
                 ListDirectory(searchPath, includeSubirectories);
                 listingDirectory = false;
             }));
 
-            //directory thread
+            //list thread
             tasks.Add(Task.Run(() =>
             {
                 ListFiles();
                 listingFiles = false;
                 TryNotifySearchEnded();
-
-                lock (files)
-                {
-                    Monitor.PulseAll(files);
-                }
             }));
 
             //notification thread
             tasks.Add(Task.Run(DequeueEvents));
 
             //search threads
-            for (var i = 1; i < taskCount; i++)
+            for (var i = 0; i <= taskCount-baseCount; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
@@ -199,7 +198,6 @@
                                 {
                                     files.Enqueue(entry);
                                 }
-                                Monitor.PulseAll(files);
                             }
                         }
                     }
@@ -271,6 +269,8 @@
             string target;
             var matchingLines = new Queue<string>();
 
+            var sw = new SpinWait();
+
             do
             {
                 target = "";
@@ -280,10 +280,6 @@
                     if (files.TryDequeue(out string result))
                     {
                         target = result;
-                    }
-                    else if (listingFiles)
-                    {
-                        Monitor.Wait(files);
                     }
                 }
 
@@ -355,6 +351,10 @@
                         QueueEvent(new OnFileFoundEvent(target, matchingLines.ToArray()));
                         matchingLines.Clear();
                     }
+                }
+                else
+                {
+                    sw.SpinOnce();
                 }
             } while (!stop && (!string.IsNullOrEmpty(target) || listingFiles));
         }
