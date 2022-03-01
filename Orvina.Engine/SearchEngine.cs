@@ -4,11 +4,11 @@
     {
         private readonly object diskLock = new();
         private readonly object endLock = new();
-        private readonly List<Event> eventsList = new();
-        private readonly List<string> files = new();
+        private readonly Queue<Event> eventsList = new();
+        private readonly Queue<string> files = new();
         private readonly List<Task> tasks = new();
 
-        private List<string> fileExtensions;
+        private string[] fileExtensions;
 
         private int finishedTasks;
         private bool listingDirectory;
@@ -26,7 +26,7 @@
         /// <summary>
         /// returns the file and the lines in the file that match the search
         /// </summary>
-        public event Action<string, List<string>> OnFileFound;
+        public event Action<string, string[]> OnFileFound;
 
         /// <summary>
         /// returns the currently scanned file
@@ -50,6 +50,7 @@
                 //extra microseconds to update their status
                 Task.WaitAll(tasks.ToArray());
                 tasks.ForEach(t => t.Dispose());
+                tasks.Clear();
             }
         }
 
@@ -71,7 +72,6 @@
             {
                 //clean up tasks from previous run
                 Dispose();
-                tasks.Clear();
             }
 
             eventsList.Clear();
@@ -80,7 +80,7 @@
             finishedTasks = 0;
             listingDirectory = true;
 
-            this.fileExtensions = fileExtensions.ToList();
+            this.fileExtensions = fileExtensions;
             this.taskCount = Environment.ProcessorCount > 2 ? Environment.ProcessorCount : 3;
 
             //directory thread
@@ -126,13 +126,13 @@
 
         private void DequeueEvents()
         {
-            var queue = new List<Event>();
+            Event[] queue;
 
             while (!searchEnded)
             {
                 lock (eventsList)
                 {
-                    queue.AddRange(eventsList);
+                    queue = eventsList.ToArray();
                     eventsList.Clear();
                     if (!queue.Any())
                     {
@@ -170,8 +170,6 @@
                             break;
                     }
                 }
-
-                queue.Clear();
             }
         }
 
@@ -191,7 +189,10 @@
                 {
                     lock (files)
                     {
-                        files.AddRange(filesToAdd);
+                        foreach(var entry in filesToAdd)
+                        {
+                            files.Enqueue(entry);
+                        }
                         Monitor.PulseAll(files);
                     }
                 }
@@ -217,17 +218,15 @@
         {
             lock (eventsList)
             {
-                eventsList.Add(eventType);
+                eventsList.Enqueue(eventType);
                 Monitor.Pulse(eventsList);
             }
         }
 
         private void SearchFile(string searchText)
         {
-            int fileCount;
             string target;
-
-            var matchingLines = new List<string>();
+            var matchingLines = new Queue<string>();
 
             do
             {
@@ -235,12 +234,9 @@
 
                 lock (files)
                 {
-                    fileCount = files.Count;
-                    if (fileCount > 0)
+                    if (files.TryDequeue(out string result))
                     {
-                        target = files[0];
-                        files.RemoveAt(0);
-                        fileCount--;
+                        target = result;
                     }
                     else if (listingDirectory)
                     {
@@ -276,7 +272,7 @@
                                     lineNum++;
                                     if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
                                     {
-                                        matchingLines.Add($"({lineNum}) " + line);
+                                        matchingLines.Enqueue($"({lineNum}) " + line);
                                     }
                                 }
                             }
@@ -292,7 +288,7 @@
                                     {
                                         if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
                                         {
-                                            matchingLines.Add(line);
+                                            matchingLines.Enqueue(line);
                                         }
                                     }
                                 }
@@ -313,11 +309,11 @@
 
                     if (matchingLines.Any())
                     {
-                        QueueEvent(new OnFileFoundEvent(target, new List<string>(matchingLines)));
+                        QueueEvent(new OnFileFoundEvent(target, matchingLines.ToArray()));
                         matchingLines.Clear();
                     }
                 }
-            } while (!stop && (fileCount > 0 || listingDirectory));
+            } while (!stop && (!string.IsNullOrEmpty(target) || listingDirectory));
         }
 
         private void TryNotifySearchEnded()

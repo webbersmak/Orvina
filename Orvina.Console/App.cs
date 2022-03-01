@@ -247,7 +247,7 @@ namespace Orvina.Console
             }
         }
 
-        private void Search_OnFileFound(string file, List<string> matchingLines)
+        private void Search_OnFileFound(string file, string[] matchingLines)
         {
             fileId++;
 

@@ -30,14 +30,14 @@
 
     internal sealed class OnFileFoundEvent : Event
     {
-        public OnFileFoundEvent(string file, List<string> lines) : base(Event.EventTypes.OnFileFound)
+        public OnFileFoundEvent(string file, string[] lines) : base(Event.EventTypes.OnFileFound)
         {
             this.File = file;
             this.Lines = lines;
         }
 
         public readonly string File;
-        public readonly List<string> Lines;
+        public readonly string[] Lines;
     }
 
     internal sealed class OnProgressEvent : Event
