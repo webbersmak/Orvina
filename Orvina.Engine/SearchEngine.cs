@@ -12,6 +12,7 @@
 
         private int finishedTasks;
         private bool listingDirectory;
+        private bool listingFiles;
         private bool searchEnded;
         private bool stop;
         private int taskCount;
@@ -79,15 +80,21 @@
             searchEnded = false;
             finishedTasks = 0;
             listingDirectory = true;
+            listingFiles = true;
 
             this.fileExtensions = fileExtensions;
             this.taskCount = Environment.ProcessorCount > 2 ? Environment.ProcessorCount : 3;
 
+            tasks.Add(Task.Run(()=> { 
+                ListDirectory(searchPath, includeSubirectories);
+                listingDirectory = false;
+            }));
+
             //directory thread
             tasks.Add(Task.Run(() =>
             {
-                ListDirectory(searchPath, includeSubirectories);
-                listingDirectory = false;
+                ListFiles();
+                listingFiles = false;
                 TryNotifySearchEnded();
 
                 lock (files)
@@ -117,30 +124,22 @@
         public void Stop()
         {
             stop = true; //let threads run to completion
-
-            lock (eventsList)
-            {
-                Monitor.Pulse(eventsList);
-            }
         }
 
         private void DequeueEvents()
         {
-            Event[] queue;
-
+            var queue = new Queue<Event>();
             while (!searchEnded)
             {
                 lock (eventsList)
                 {
-                    queue = eventsList.ToArray();
-                    eventsList.Clear();
-                    if (!queue.Any())
+                    while (eventsList.TryDequeue(out Event e))
                     {
-                        Monitor.Wait(eventsList);
+                        queue.Enqueue(e);
                     }
                 }
 
-                foreach (var e in queue)
+                while (queue.TryDequeue(out Event e))
                 {
                     if (stop)
                     {
@@ -173,6 +172,51 @@
             }
         }
 
+        private void ListFiles()
+        {
+            string path;
+            do
+            {
+                path = "";
+                lock (directories)
+                {
+                    if (directories.TryDequeue(out string result))
+                    {
+                        path = result;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    try
+                    {
+                        var filesToAdd = Directory.GetFiles(path).Where(file => fileExtensions.Any(t => file.EndsWith(t) || !fileExtensions.Any()));
+                        if (filesToAdd.Any())
+                        {
+                            lock (files)
+                            {
+                                foreach (var entry in filesToAdd)
+                                {
+                                    files.Enqueue(entry);
+                                }
+                                Monitor.PulseAll(files);
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (RaiseErrors)
+                        {
+                            QueueEvent(new OnErrorEvent(e.ToString()));
+                        }
+                    }
+                }
+            } while (!stop && (listingDirectory || !string.IsNullOrEmpty(path)));
+        }
+
+        private readonly Queue<string> directories = new();
+
+
         private void ListDirectory(string path, bool includeSubirectories)
         {
             if (stop)
@@ -184,22 +228,22 @@
 
             try
             {
-                var filesToAdd = Directory.GetFiles(path).Where(file => fileExtensions.Any(t => file.EndsWith(t) || !fileExtensions.Any()));
-                if (filesToAdd.Any())
-                {
-                    lock (files)
-                    {
-                        foreach(var entry in filesToAdd)
-                        {
-                            files.Enqueue(entry);
-                        }
-                        Monitor.PulseAll(files);
-                    }
-                }
-
                 if (includeSubirectories)
                 {
-                    foreach (var dir in Directory.GetDirectories(path))
+                    var dirs = Directory.GetDirectories(path);
+
+                    if (dirs.Any())
+                    {
+                        lock (directories)
+                        {
+                            foreach (var dir in dirs)
+                            {
+                                directories.Enqueue(dir);
+                            }
+                        }
+                    }
+
+                    foreach (var dir in dirs)
                     {
                         ListDirectory(dir, includeSubirectories);
                     }
@@ -219,7 +263,6 @@
             lock (eventsList)
             {
                 eventsList.Enqueue(eventType);
-                Monitor.Pulse(eventsList);
             }
         }
 
@@ -238,7 +281,7 @@
                     {
                         target = result;
                     }
-                    else if (listingDirectory)
+                    else if (listingFiles)
                     {
                         Monitor.Wait(files);
                     }
@@ -313,7 +356,7 @@
                         matchingLines.Clear();
                     }
                 }
-            } while (!stop && (!string.IsNullOrEmpty(target) || listingDirectory));
+            } while (!stop && (!string.IsNullOrEmpty(target) || listingFiles));
         }
 
         private void TryNotifySearchEnded()
