@@ -90,7 +90,7 @@ namespace Orvina.Engine
             this.fileExtensions = fileExtensions;
 
             var baseCount = 4;
-            this.taskCount = baseCount + (Environment.ProcessorCount > baseCount ? Environment.ProcessorCount - baseCount : 0);
+            this.taskCount = baseCount + (Environment.ProcessorCount > baseCount ? Environment.ProcessorCount - baseCount : 0);//notification thread;
 
             //directory thread
             tasks.Add(Task.Run(() =>
@@ -128,7 +128,7 @@ namespace Orvina.Engine
         public void Stop()
         {
             stop = true; //let threads run to completion
-            QueueEvent(new OnSearchCompleteEvent());
+            QueueEvent(new OnSearchCompleteEvent(), true);
         }
 
         private void DequeueEvents()
@@ -146,13 +146,6 @@ namespace Orvina.Engine
 
                 while (queue.TryDequeue(out Event e))
                 {
-                    if (stop)
-                    {
-                        this.searchEnded = true;
-                        this.OnSearchComplete?.Invoke();
-                        break;
-                    }
-
                     switch (e.EventType)
                     {
                         case Event.EventTypes.OnProgress:
@@ -263,10 +256,14 @@ namespace Orvina.Engine
             } while (!stop && (listingDirectory || !string.IsNullOrEmpty(path)));
         }
 
-        private void QueueEvent(Event eventType)
+        private void QueueEvent(Event eventType, bool clear = false)
         {
             lock (eventsList)
             {
+                if (clear)
+                {
+                    eventsList.Reset();
+                }
                 eventsList.Enqueue(eventType);
             }
         }
@@ -370,7 +367,9 @@ namespace Orvina.Engine
             lock (endLock)
             {
                 finishedTasks++;
-                if (finishedTasks == taskCount)
+                //Console.WriteLine($"finishedTasks {finishedTasks}  taskCount {taskCount} ");
+
+                if (finishedTasks == taskCount-2)
                 {
                     QueueEvent(new OnSearchCompleteEvent());
                 }
