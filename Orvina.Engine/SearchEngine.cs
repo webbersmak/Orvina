@@ -17,7 +17,8 @@
         private bool stop;
         private int taskCount;
 
-        public bool RaiseErrors { set; private get; }
+        private bool raiseErrors;
+        private bool raiseProgress;
 
         /// <summary>
         /// returns error message
@@ -74,6 +75,9 @@
                 //clean up tasks from previous run
                 Dispose();
             }
+
+            raiseErrors = OnError != null;
+            raiseProgress = OnProgress != null;
 
             eventsList.Clear();
             stop = false;
@@ -203,7 +207,7 @@
                     }
                     catch (Exception e)
                     {
-                        if (RaiseErrors)
+                        if (raiseErrors)
                         {
                             QueueEvent(new OnErrorEvent(e.ToString()));
                         }
@@ -222,7 +226,10 @@
                 return;
             }
 
-            QueueEvent(new OnProgressEvent(path));
+            if (raiseProgress)
+            {
+                QueueEvent(new OnProgressEvent(path));
+            }
 
             try
             {
@@ -249,7 +256,7 @@
             }
             catch (Exception e)
             {
-                if (RaiseErrors)
+                if (raiseErrors)
                 {
                     QueueEvent(new OnErrorEvent(e.ToString()));
                 }
@@ -287,7 +294,10 @@
                 {
                     try
                     {
-                        QueueEvent(new OnProgressEvent(Path.GetFileName(target)));
+                        if (raiseProgress)
+                        {
+                            QueueEvent(new OnProgressEvent(Path.GetFileName(target)));
+                        }
 
                         try //bulk read
                         {
@@ -340,7 +350,7 @@
                     }
                     catch (Exception e)
                     {
-                        if (RaiseErrors)
+                        if (raiseErrors)
                         {
                             QueueEvent(new OnErrorEvent(e.ToString()));
                         }

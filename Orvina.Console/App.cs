@@ -121,12 +121,13 @@ namespace Orvina.Console
         {
             using (var search = new SearchEngine())
             {
-                search.OnError += Search_OnError;
+                if (showErrors)
+                {
+                    search.OnError += Search_OnError;
+                }
                 search.OnFileFound += Search_OnFileFound;
                 search.OnSearchComplete += Search_OnSearchComplete;
                 search.OnProgress += Search_OnProgress;
-
-                search.RaiseErrors = showErrors;
 
                 WriteLine("searching...('q' to quit)\n");
                 stopwatch.Start();
