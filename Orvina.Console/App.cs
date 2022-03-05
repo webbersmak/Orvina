@@ -287,9 +287,12 @@ namespace Orvina.Console
             }
         }
 
-        private void Search_OnProgress(string filePath)
+        private void Search_OnProgress(string filePath, bool isFile)
         {
-            searchCount++;
+            if (isFile)
+            {
+                searchCount++;
+            }
             PrintWipe(filePath);
         }
 

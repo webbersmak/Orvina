@@ -2,7 +2,7 @@
   "profiles": {
     "Orvina.Console": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\users\\admin\" orvina .cs"
+      "commandLineArgs": "\"C:\\\\\" orvina .cs"
     }
   }
 }

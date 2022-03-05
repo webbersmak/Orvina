@@ -1,11 +1,13 @@
-﻿namespace Orvina.Engine
+﻿using Orvina.Engine.Support;
+
+namespace Orvina.Engine
 {
     public class SearchEngine : IDisposable
     {
-        private readonly object diskLock = new();
+        private readonly SimpleQueue<string> directories = new();
         private readonly object endLock = new();
-        private readonly Queue<Event> eventsList = new();
-        private readonly Queue<string> files = new();
+        private readonly SimpleQueue<Event> eventsList = new();
+        private readonly SimpleQueue<string> files = new();
         private readonly List<Task> tasks = new();
 
         private string[] fileExtensions;
@@ -13,12 +15,11 @@
         private int finishedTasks;
         private bool listingDirectory;
         private bool listingFiles;
+        private bool raiseErrors;
+        private bool raiseProgress;
         private bool searchEnded;
         private bool stop;
         private int taskCount;
-
-        private bool raiseErrors;
-        private bool raiseProgress;
 
         /// <summary>
         /// returns error message
@@ -79,7 +80,7 @@
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
-            eventsList.Clear();
+            eventsList.Reset();
             stop = false;
             searchEnded = false;
             finishedTasks = 0;
@@ -127,11 +128,12 @@
         public void Stop()
         {
             stop = true; //let threads run to completion
+            QueueEvent(new OnSearchCompleteEvent());
         }
 
         private void DequeueEvents()
         {
-            var queue = new Queue<Event>();
+            var queue = new SimpleQueue<Event>();
             while (!searchEnded)
             {
                 lock (eventsList)
@@ -175,50 +177,6 @@
                 }
             }
         }
-
-        private void ListFiles()
-        {
-            string path;
-            do
-            {
-                path = "";
-                lock (directories)
-                {
-                    if (directories.TryDequeue(out string result))
-                    {
-                        path = result;
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(path))
-                {
-                    try
-                    {
-                        var filesToAdd = Directory.GetFiles(path).Where(file => fileExtensions.Any(t => file.EndsWith(t) || !fileExtensions.Any()));
-                        if (filesToAdd.Any())
-                        {
-                            lock (files)
-                            {
-                                foreach (var entry in filesToAdd)
-                                {
-                                    files.Enqueue(entry);
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        if (raiseErrors)
-                        {
-                            QueueEvent(new OnErrorEvent(e.ToString()));
-                        }
-                    }
-                }
-            } while (!stop && (listingDirectory || !string.IsNullOrEmpty(path)));
-        }
-
-        private readonly Queue<string> directories = new();
-
 
         private void ListDirectory(string path, bool includeSubirectories)
         {
@@ -264,6 +222,47 @@
             }
         }
 
+        private void ListFiles()
+        {
+            string path;
+            do
+            {
+                path = "";
+                lock (directories)
+                {
+                    if (directories.TryDequeue(out string result))
+                    {
+                        path = result;
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(path))
+                {
+                    try
+                    {
+                        var filesToAdd = Directory.GetFiles(path).Where(file => fileExtensions.Any(t => file.EndsWith(t) || !fileExtensions.Any()));
+                        if (filesToAdd.Any())
+                        {
+                            lock (files)
+                            {
+                                foreach (var entry in filesToAdd)
+                                {
+                                    files.Enqueue(entry);
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        if (raiseErrors)
+                        {
+                            QueueEvent(new OnErrorEvent(e.ToString()));
+                        }
+                    }
+                }
+            } while (!stop && (listingDirectory || !string.IsNullOrEmpty(path)));
+        }
+
         private void QueueEvent(Event eventType)
         {
             lock (eventsList)
@@ -275,7 +274,7 @@
         private void SearchFile(string searchText)
         {
             string target;
-            var matchingLines = new Queue<string>();
+            var matchingLines = new SimpleQueue<string>();
 
             var sw = new SpinWait();
 
@@ -302,11 +301,7 @@
 
                         try //bulk read
                         {
-                            string all;
-                            lock (diskLock) //get on/off disk ASAP
-                            {
-                                all = File.ReadAllText(target);
-                            }
+                            var all = File.ReadAllText(target);
 
                             //most cases the file won't contain the searchText at all
                             if (all.Contains(searchText, StringComparison.OrdinalIgnoreCase))
@@ -357,10 +352,10 @@
                         }
                     }
 
-                    if (matchingLines.Any())
+                    if (matchingLines.Any)
                     {
-                        QueueEvent(new OnFileFoundEvent(target, matchingLines.ToArray()));
-                        matchingLines.Clear();
+                        QueueEvent(new OnFileFoundEvent(target, matchingLines.ToArray));
+                        matchingLines.Reset();
                     }
                 }
                 else
