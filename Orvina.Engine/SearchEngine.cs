@@ -33,7 +33,7 @@
         /// <summary>
         /// returns the currently scanned file
         /// </summary>
-        public event Action<string> OnProgress;
+        public event Action<string, bool> OnProgress;
 
         /// <summary>
         /// this will be raised when the search is complete. Expect this event even if Stop() is called
@@ -110,7 +110,7 @@
             tasks.Add(Task.Run(DequeueEvents));
 
             //search threads
-            for (var i = 0; i <= taskCount-baseCount; i++)
+            for (var i = 0; i <= taskCount - baseCount; i++)
             {
                 tasks.Add(Task.Run(() =>
                 {
@@ -154,7 +154,8 @@
                     switch (e.EventType)
                     {
                         case Event.EventTypes.OnProgress:
-                            this.OnProgress?.Invoke(((OnProgressEvent)e).File);
+                            var pe = (OnProgressEvent)e;
+                            this.OnProgress?.Invoke(pe.File, pe.IsFile);
                             break;
 
                         case Event.EventTypes.OnFileFound:
@@ -228,7 +229,7 @@
 
             if (raiseProgress)
             {
-                QueueEvent(new OnProgressEvent(path));
+                QueueEvent(new OnProgressEvent(path, false));
             }
 
             try
@@ -296,7 +297,7 @@
                     {
                         if (raiseProgress)
                         {
-                            QueueEvent(new OnProgressEvent(Path.GetFileName(target)));
+                            QueueEvent(new OnProgressEvent(Path.GetFileName(target), true));
                         }
 
                         try //bulk read

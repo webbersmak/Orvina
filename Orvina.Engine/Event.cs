@@ -42,12 +42,14 @@
 
     internal sealed class OnProgressEvent : Event
     {
-        public OnProgressEvent(string file) : base(Event.EventTypes.OnProgress)
+        public OnProgressEvent(string file, bool isFile) : base(Event.EventTypes.OnProgress)
         {
             this.File = file;
+            this.IsFile = isFile;
         }
 
         public readonly string File;
+        public readonly bool IsFile;
     }
 
     internal sealed class OnSearchCompleteEvent : Event
