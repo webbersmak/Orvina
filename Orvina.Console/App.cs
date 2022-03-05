@@ -127,7 +127,7 @@ namespace Orvina.Console
                 }
                 search.OnFileFound += Search_OnFileFound;
                 search.OnSearchComplete += Search_OnSearchComplete;
-                search.OnProgress += Search_OnProgress;
+                //search.OnProgress += Search_OnProgress;
 
                 WriteLine("searching...('q' to quit)\n");
                 stopwatch.Start();

@@ -6,7 +6,7 @@ namespace Orvina.Engine
     {
         private readonly SimpleQueue<string> directories = new();
         private readonly object endLock = new();
-        private readonly SimpleQueue<Event> eventsList = new();
+
         private readonly SimpleQueue<string> files = new();
         private readonly List<Task> tasks = new();
 
@@ -80,7 +80,7 @@ namespace Orvina.Engine
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
-            eventsList.Reset();
+
             stop = false;
             searchEnded = false;
             finishedTasks = 0;
@@ -107,9 +107,6 @@ namespace Orvina.Engine
                 TryNotifySearchEnded();
             }));
 
-            //notification thread
-            tasks.Add(Task.Run(DequeueEvents));
-
             //search threads
             for (var i = 0; i <= taskCount - baseCount; i++)
             {
@@ -128,48 +125,9 @@ namespace Orvina.Engine
         public void Stop()
         {
             stop = true; //let threads run to completion
-            QueueEvent(new OnSearchCompleteEvent(), true);
+            HandleEvent(new OnSearchCompleteEvent());
         }
 
-        private void DequeueEvents()
-        {
-            var queue = new SimpleQueue<Event>();
-            while (!searchEnded)
-            {
-                lock (eventsList)
-                {
-                    while (eventsList.TryDequeue(out Event e))
-                    {
-                        queue.Enqueue(e);
-                    }
-                }
-
-                while (queue.TryDequeue(out Event e))
-                {
-                    switch (e.EventType)
-                    {
-                        case Event.EventTypes.OnProgress:
-                            var pe = (OnProgressEvent)e;
-                            this.OnProgress?.Invoke(pe.File, pe.IsFile);
-                            break;
-
-                        case Event.EventTypes.OnFileFound:
-                            var fileEvent = (OnFileFoundEvent)e;
-                            this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
-                            break;
-
-                        case Event.EventTypes.OnSearchComplete:
-                            this.searchEnded = true;
-                            this.OnSearchComplete?.Invoke();
-                            break;
-
-                        case Event.EventTypes.OnError:
-                            this.OnError?.Invoke(((OnErrorEvent)e).Error);
-                            break;
-                    }
-                }
-            }
-        }
 
         private void ListDirectory(string path, bool includeSubirectories)
         {
@@ -180,7 +138,7 @@ namespace Orvina.Engine
 
             if (raiseProgress)
             {
-                QueueEvent(new OnProgressEvent(path, false));
+                HandleEvent(new OnProgressEvent(path, false));
             }
 
             try
@@ -210,7 +168,7 @@ namespace Orvina.Engine
             {
                 if (raiseErrors)
                 {
-                    QueueEvent(new OnErrorEvent(e.ToString()));
+                    HandleEvent(new OnErrorEvent(e.ToString()));
                 }
             }
         }
@@ -249,22 +207,38 @@ namespace Orvina.Engine
                     {
                         if (raiseErrors)
                         {
-                            QueueEvent(new OnErrorEvent(e.ToString()));
+                            HandleEvent(new OnErrorEvent(e.ToString()));
                         }
                     }
                 }
             } while (!stop && (listingDirectory || !string.IsNullOrEmpty(path)));
         }
 
-        private void QueueEvent(Event eventType, bool clear = false)
+        private void HandleEvent(Event e)
         {
-            lock (eventsList)
+            lock (this)
             {
-                if (clear)
+                switch (e.EventType)
                 {
-                    eventsList.Reset();
+                    case Event.EventTypes.OnProgress:
+                        var pe = (OnProgressEvent)e;
+                        this.OnProgress?.Invoke(pe.File, pe.IsFile);
+                        break;
+
+                    case Event.EventTypes.OnFileFound:
+                        var fileEvent = (OnFileFoundEvent)e;
+                        this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                        break;
+
+                    case Event.EventTypes.OnSearchComplete:
+                        this.searchEnded = true;
+                        this.OnSearchComplete?.Invoke();
+                        break;
+
+                    case Event.EventTypes.OnError:
+                        this.OnError?.Invoke(((OnErrorEvent)e).Error);
+                        break;
                 }
-                eventsList.Enqueue(eventType);
             }
         }
 
@@ -293,7 +267,7 @@ namespace Orvina.Engine
                     {
                         if (raiseProgress)
                         {
-                            QueueEvent(new OnProgressEvent(Path.GetFileName(target), true));
+                            HandleEvent(new OnProgressEvent(Path.GetFileName(target), true));
                         }
 
                         try //bulk read
@@ -345,13 +319,13 @@ namespace Orvina.Engine
                     {
                         if (raiseErrors)
                         {
-                            QueueEvent(new OnErrorEvent(e.ToString()));
+                            HandleEvent(new OnErrorEvent(e.ToString()));
                         }
                     }
 
                     if (matchingLines.Any)
                     {
-                        QueueEvent(new OnFileFoundEvent(target, matchingLines.ToArray));
+                        HandleEvent(new OnFileFoundEvent(target, matchingLines.ToArray));
                         matchingLines.Reset();
                     }
                 }
@@ -371,7 +345,7 @@ namespace Orvina.Engine
 
                 if (finishedTasks == taskCount-2)
                 {
-                    QueueEvent(new OnSearchCompleteEvent());
+                    HandleEvent(new OnSearchCompleteEvent());
                 }
             }
         }
