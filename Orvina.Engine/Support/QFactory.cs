@@ -10,12 +10,6 @@
         private static readonly Dictionary<int, SimpleQueue<T>> InUse = new(32);
 
         private static int maxId;
-        private static SpinLock qLock = new();
-
-        //public static SimpleQueue<T> All(int id)
-        //{
-        //    return InUse[id];
-        //}
 
         public static int Count(int id)
         {
@@ -40,12 +34,8 @@
         public static int GetQ()
         {
             SimpleQueue<T> queue;
-
-            var locked = false;
-            try
+            lock (InUse)
             {
-                qLock.Enter(ref locked);
-                //////////////////////
                 if (Closed.TryDequeue(out SimpleQueue<T> old))
                 {
                     queue = old;
@@ -55,37 +45,17 @@
                     queue = new SimpleQueue<T>(32);
                 }
 
-                //return InUse.Add(queue);
                 InUse.Add(maxId, queue);
                 return maxId++;
-                ///////////////////////
-            }
-            finally
-            {
-                if (locked)
-                {
-                    qLock.Exit(false);
-                }
             }
         }
 
         public static void ReturnQ(int id)
         {
-            var locked = false;
-            try
+            lock (InUse)
             {
-                qLock.Enter(ref locked);
-                //////////////////////
                 Closed.Enqueue(InUse[id]);
                 InUse.Remove(id);
-                ///////////////////////
-            }
-            finally
-            {
-                if (locked)
-                {
-                    qLock.Exit(false);
-                }
             }
         }
 

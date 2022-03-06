@@ -5,8 +5,11 @@ namespace Orvina.Engine
     public class SearchEngine : IDisposable
     {
         private readonly object endLock = new();
+        private readonly FileTractor fileTractor = new();
+        private readonly SimpleQueue<string> options = new(32);
         private readonly List<Task> tasks = new();
 
+        private bool[] downThreads;
         private string[] fileExtensions;
 
         private int finishedTasks;
@@ -14,6 +17,7 @@ namespace Orvina.Engine
         private bool raiseErrors;
         private bool raiseProgress;
 
+        private string searchText;
         private bool stop;
 
         /// <summary>
@@ -50,8 +54,6 @@ namespace Orvina.Engine
 
             options.Reset();
         }
-
-        private string searchText;
 
         /// <summary>
         /// Call this method to start the search. Or call it to restart the search after the OnSearchComplete event is raised.
@@ -107,10 +109,32 @@ namespace Orvina.Engine
             HandleEvent(new OnSearchCompleteEvent());
         }
 
-        private readonly SimpleQueue<string> options = new(32);
-        private bool[] downThreads;
+        private void HandleEvent(Event e)
+        {
+            lock (this)
+            {
+                switch (e.EventType)
+                {
+                    case Event.EventTypes.OnProgress:
+                        var pe = (OnProgressEvent)e;
+                        OnProgress?.Invoke(pe.File, pe.IsFile);
+                        break;
 
-        private readonly SimpleQueue<string> filesQ = new(32);
+                    case Event.EventTypes.OnFileFound:
+                        var fileEvent = (OnFileFoundEvent)e;
+                        OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                        break;
+
+                    case Event.EventTypes.OnSearchComplete:
+                        OnSearchComplete?.Invoke();
+                        break;
+
+                    case Event.EventTypes.OnError:
+                        OnError?.Invoke(((OnErrorEvent)e).Error);
+                        break;
+                }
+            }
+        }
 
         private void MultiSearch(int runnerId)
         {
@@ -139,27 +163,9 @@ namespace Orvina.Engine
                 }
             }
 
-            processing = true;
-            string nextFile;
-            while (processing && !stop)
+            while (!stop && fileTractor.TryGetFile(out FileTractor.CompleteFile nextFile) && !stop)
             {
-                nextFile = null;
-                lock (filesQ)
-                {
-                    if (filesQ.TryDequeue(out string file))
-                    {
-                        nextFile = file;
-                    }
-                    else
-                    {
-                        processing = false;
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(nextFile))
-                {
-                    ScanFile(nextFile);
-                }
+                ScanFile(nextFile);
             }
 
             void TryNotifySearchEnded()
@@ -229,14 +235,12 @@ namespace Orvina.Engine
                     }
                 }
 
-                if (QFactory<string>.Any(queueId))
+                while (QFactory<string>.TryDequeue(queueId, out string file))
                 {
-                    lock (filesQ)
+                    fileTractor.Enqueue(file);
+                    if (raiseProgress)
                     {
-                        while (QFactory<string>.TryDequeue(queueId, out string file))
-                        {
-                            filesQ.Enqueue(file);
-                        }
+                        HandleEvent(new OnProgressEvent(Path.GetFileName(file), true));
                     }
                 }
             }
@@ -250,98 +254,35 @@ namespace Orvina.Engine
             QFactory<string>.ReturnQ(queueId);
         }
 
-        private void HandleEvent(Event e)
+        private void ScanFile(FileTractor.CompleteFile file)
         {
-            lock (this)
-            {
-                switch (e.EventType)
-                {
-                    case Event.EventTypes.OnProgress:
-                        var pe = (OnProgressEvent)e;
-                        OnProgress?.Invoke(pe.File, pe.IsFile);
-                        break;
-
-                    case Event.EventTypes.OnFileFound:
-                        var fileEvent = (OnFileFoundEvent)e;
-                        OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
-                        break;
-
-                    case Event.EventTypes.OnSearchComplete:
-                        OnSearchComplete?.Invoke();
-                        break;
-
-                    case Event.EventTypes.OnError:
-                        OnError?.Invoke(((OnErrorEvent)e).Error);
-                        break;
-                }
-            }
-        }
-
-        private void ScanFile(string nextFile)
-        {
-            if (raiseProgress)
-            {
-                HandleEvent(new OnProgressEvent(Path.GetFileName(nextFile), true));
-            }
-
             var matchingLines = QFactory<string>.GetQ();
 
             try
             {
-                try //bulk read
+                var all = System.Text.Encoding.UTF8.GetString(file.data);
+
+                //most cases the file won't contain the searchText at all
+                var idx = 0;
+                while (idx < (all.Length - 1) && (idx = all.IndexOf(searchText, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
                 {
-                    string all;
-                    using (var fs = File.OpenRead(nextFile))
+                    var lineStartIdx = all.LastIndexOf("\n", idx);
+                    var lineEndIdx = all.IndexOf("\n", idx + searchText.Length);
+
+                    lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : idx;
+                    lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : idx + searchText.Length;
+
+                    int newLineIdx = -1;
+                    int startIdx = 0;
+                    var lineNum = 1;
+                    while (startIdx < all.Length - 1 && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < idx)
                     {
-                        using (var bs = new BufferedStream(fs, 1024))
-                        {
-                            using (var b = new BinaryReader(bs))
-                            {
-                                var data = b.ReadBytes((int)fs.Length);
-                                all = System.Text.Encoding.UTF8.GetString(data);
-                            }
-                        }
+                        startIdx = newLineIdx + 1;
+                        lineNum++;
                     }
 
-                    //var all = File.ReadAllText(nextFile);
-
-                    //most cases the file won't contain the searchText at all
-                    var idx = 0;
-                    while (idx < (all.Length - 1) && (idx = all.IndexOf(searchText, idx, StringComparison.OrdinalIgnoreCase)) >= 0)
-                    {
-                        var lineStartIdx = all.LastIndexOf("\n", idx);
-                        var lineEndIdx = all.IndexOf("\n", idx + searchText.Length);
-
-                        lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : idx;
-                        lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : idx + searchText.Length;
-
-                        int newLineIdx = -1;
-                        int startIdx = 0;
-                        var lineNum = 1;
-                        while (startIdx < all.Length - 1 && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < idx)
-                        {
-                            startIdx = newLineIdx + 1;
-                            lineNum++;
-                        }
-
-                        QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {all.Substring(lineStartIdx, lineEndIdx - startIdx)}");
-                        idx++;
-                    }
-                }
-                catch (OutOfMemoryException)
-                {
-                    //line by line
-                    using (var reader = (TextReader)(new StreamReader(nextFile)))
-                    {
-                        string line;
-                        while ((line = reader.ReadLine()) != null && !stop)
-                        {
-                            if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                            {
-                                QFactory<string>.Enqueue(matchingLines, line);
-                            }
-                        }
-                    }
+                    QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {all.Substring(lineStartIdx, lineEndIdx - startIdx)}");
+                    idx++;
                 }
             }
             catch (Exception ex)
@@ -361,7 +302,7 @@ namespace Orvina.Engine
                     lines[i++] = value;
                 }
 
-                HandleEvent(new OnFileFoundEvent(nextFile, lines));
+                HandleEvent(new OnFileFoundEvent(file.fileName, lines));
             }
 
             QFactory<string>.ReturnQ(matchingLines);
