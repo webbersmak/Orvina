@@ -175,7 +175,7 @@ namespace Orvina.Console
                                 try
                                 {
                                     using (var p = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }))
-                                    { 
+                                    {
                                         fileOpened = true;
                                     };
                                 }

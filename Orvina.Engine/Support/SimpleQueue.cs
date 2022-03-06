@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Orvina.Engine.Support
+﻿namespace Orvina.Engine.Support
 {
     /// <summary>
     /// small, efficient queue
@@ -48,7 +42,7 @@ namespace Orvina.Engine.Support
         {
             get
             {
-                return currentIdx +1;
+                return currentIdx + 1;
             }
         }
 
@@ -93,5 +87,4 @@ namespace Orvina.Engine.Support
             return false;
         }
     }
-
 }

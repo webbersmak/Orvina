@@ -1,5 +1,4 @@
 ﻿using Orvina.Engine.Support;
-using System.Text;
 
 namespace Orvina.Engine
 {
@@ -42,7 +41,6 @@ namespace Orvina.Engine
         /// </summary>
         public void Dispose()
         {
-
             //saw a bug (windows?) where a completed thread still showed as running
             //this while() will let threads finish up if they needed a few
             //extra microseconds to update their status
@@ -99,7 +97,6 @@ namespace Orvina.Engine
             }
         }
 
-
         /// <summary>
         /// Request the search to stop. There may be a delay between calling this method
         /// and seeing the OnSearchComplete event
@@ -109,7 +106,6 @@ namespace Orvina.Engine
             stop = true; //let threads run to completion
             HandleEvent(new OnSearchCompleteEvent());
         }
-
 
         private readonly SimpleQueue<string> options = new(32);
         private bool[] downThreads;
@@ -179,7 +175,6 @@ namespace Orvina.Engine
 
             TryNotifySearchEnded();
         }
-
 
         private void MultiSearchInner(string path)
         {
