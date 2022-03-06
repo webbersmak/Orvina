@@ -4,77 +4,72 @@ namespace Orvina.Engine
 {
     internal sealed class FileTractor
     {
-        private static readonly CompleteFile EmptyFile = new();
         private readonly Dictionary<int, AsyncContext> asyncReads = new(32);
         private readonly SimpleQueue<CompleteFile> dataQ = new(32);
 
-        private bool active;
         private int callId;
 
-        public void Enqueue(string file)
+        public bool TryEnqueue(string file)
         {
-            var context = new AsyncContext() { fileName = Path.GetFileName(file) };
-
-            lock (this)
+            try
             {
-                active = true;
-                callId++;
+                var context = new AsyncContext() { fileName = Path.GetFileName(file) };
 
-                //begin async read
-                var fs = File.OpenRead(file);
+                var fs = new FileStream(file, FileMode.Open, FileAccess.Read,FileShare.Read, 4096, true);
                 var data = new byte[fs.Length];
 
                 context.stream = fs;
                 context.data = data;
 
-                asyncReads.Add(callId, context);
-                fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
+                lock (asyncReads)
+                {
+                    asyncReads.Add(++callId, context);
+                    fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
+                }
             }
+            catch (Exception ex)
+            {
+                return false;
+            }
+
+            return true;
         }
 
+        /// <summary>
+        /// this method is why its called a tractor. Be safe.
+        /// </summary>
+        /// <param name="file"></param>
+        /// <returns></returns>
         public bool TryGetFile(out CompleteFile file)
         {
-            lock (this)
+            while (true)
             {
-                while (active)
+                lock (dataQ)
                 {
-                    lock (dataQ)
+                    if (dataQ.TryDequeue(out file))
                     {
-                        if (dataQ.TryDequeue(out file))
-                        {
-                            active = dataQ.Any;
-                            return true;
-                        }
-                        else
-                        {
-                            active = asyncReads.Count > 0;
-                        }
+                        return true;
                     }
                 }
             }
-
-            file = EmptyFile;
-            return false;
         }
 
         private void OnFileCallback(IAsyncResult ar)
         {
-            lock (this)
+            AsyncContext context;
+            var callbackId = (int)ar.AsyncState;
+
+            lock (asyncReads)
             {
-                var callId = (int)ar.AsyncState;
-                var context = asyncReads[callId];
-                asyncReads.Remove(callId);
-                try
-                {
-                    context.stream.EndRead(ar);
-                }
-                catch { }
-                context.stream.Dispose();
-                lock (dataQ)
-                {
-                    dataQ.Enqueue(new CompleteFile { data = context.data, fileName = context.fileName });
-                }
+                context = asyncReads[callbackId];
+                asyncReads.Remove(callbackId);
             }
+
+            lock (dataQ)
+            {
+                dataQ.Enqueue(new CompleteFile { data = context.data, fileName = context.fileName });
+            }
+            context.stream.Dispose();
         }
 
         public struct CompleteFile

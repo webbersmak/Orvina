@@ -51,7 +51,6 @@ namespace Orvina.Engine
             Task.WaitAll(tasks.ToArray());
             tasks.ForEach(t => t.Dispose());
             tasks.Clear();
-
             options.Reset();
         }
 
@@ -84,7 +83,7 @@ namespace Orvina.Engine
 
             options.Enqueue(searchPath);
             stop = false;
-
+            filesEnroute = 0;
             finishedTasks = 0;
 
             this.fileExtensions = fileExtensions;
@@ -93,9 +92,9 @@ namespace Orvina.Engine
             var factory = new TaskFactory();
             var threadTotal = Environment.ProcessorCount;
             downThreads = new bool[threadTotal];
-            for (var i = 0; i < threadTotal; i++)
+            for (var runnerId = 0; runnerId < threadTotal; runnerId++)
             {
-                tasks.Add(factory.StartNew((param) => MultiSearch((int)param), i));
+                tasks.Add(factory.StartNew((param) => MultiSearch((int)param), runnerId));
             }
         }
 
@@ -163,10 +162,22 @@ namespace Orvina.Engine
                 }
             }
 
-            while (!stop && fileTractor.TryGetFile(out FileTractor.CompleteFile nextFile) && !stop)
-            {
-                ScanFile(nextFile);
-            }
+            bool waitingForFiles;
+            do {
+
+                lock (fileTractor)
+                {
+                    waitingForFiles = --filesEnroute >= 0;
+                }
+
+                if (waitingForFiles && !stop)
+                {
+                    if (fileTractor.TryGetFile(out FileTractor.CompleteFile nextFile))
+                    {
+                        ScanFile(nextFile);
+                    }
+                }
+            } while (waitingForFiles && !stop);
 
             void TryNotifySearchEnded()
             {
@@ -237,7 +248,14 @@ namespace Orvina.Engine
 
                 while (QFactory<string>.TryDequeue(queueId, out string file))
                 {
-                    fileTractor.Enqueue(file);
+                    if (fileTractor.TryEnqueue(file))
+                    {
+                        lock (fileTractor)
+                        {
+                            filesEnroute++;
+                        }
+                    }
+
                     if (raiseProgress)
                     {
                         HandleEvent(new OnProgressEvent(Path.GetFileName(file), true));
@@ -253,6 +271,8 @@ namespace Orvina.Engine
             }
             QFactory<string>.ReturnQ(queueId);
         }
+
+        private int filesEnroute;
 
         private void ScanFile(FileTractor.CompleteFile file)
         {
