@@ -13,9 +13,9 @@ namespace Orvina.Engine
         {
             try
             {
-                var context = new AsyncContext() { fileName = Path.GetFileName(file) };
+                var context = new AsyncContext() { fileName = file };
 
-                var fs = new FileStream(file, FileMode.Open, FileAccess.Read,FileShare.Read, 4096, true);
+                var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
                 var data = new byte[fs.Length];
 
                 context.stream = fs;

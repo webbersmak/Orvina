@@ -12,6 +12,7 @@ namespace Orvina.Engine
         private bool[] downThreads;
         private string[] fileExtensions;
 
+        private int filesEnroute;
         private int finishedTasks;
 
         private bool raiseErrors;
@@ -163,8 +164,8 @@ namespace Orvina.Engine
             }
 
             bool waitingForFiles;
-            do {
-
+            do
+            {
                 lock (fileTractor)
                 {
                     waitingForFiles = --filesEnroute >= 0;
@@ -271,8 +272,6 @@ namespace Orvina.Engine
             }
             QFactory<string>.ReturnQ(queueId);
         }
-
-        private int filesEnroute;
 
         private void ScanFile(FileTractor.CompleteFile file)
         {
