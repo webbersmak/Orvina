@@ -17,8 +17,6 @@ namespace Orvina.Console
         private int fileId;
         private bool includeSubdirectories;
 
-        private int searchCount = 0;
-
         private bool searchEnded;
 
         private string searchPath;
@@ -26,6 +24,7 @@ namespace Orvina.Console
         private string searchText;
 
         private bool showErrors;
+        private bool showProgress;
 
         public App(string[] args)
         {
@@ -48,8 +47,8 @@ namespace Orvina.Console
                     WriteLine("orvina <search path> <search text> [file extensions] [-nosub]\n");
                     WriteLine("     <search path>   Specifies the directory to search");
                     WriteLine("     <search text>   Declares the text to search for in the files");
-                    WriteLine("     [file extensions]   Comma separated list of file extensions. Restricts searching to specific file types.");
-                    WriteLine("                         Optional. Use to restrict search to specific file types.");
+                    WriteLine("     <file extensions>   Comma separated list of file extensions. Restricts searching to specific file types.");
+                    WriteLine("     -progress           If given, show the current path or file being scanned.");
                     WriteLine("     -nosub              If given, do not search subdirectories in the search path.");
                     WriteLine("     -debug              If given, show error messages.");
                     WriteLine("");
@@ -127,8 +126,10 @@ namespace Orvina.Console
                 }
                 search.OnFileFound += Search_OnFileFound;
                 search.OnSearchComplete += Search_OnSearchComplete;
-                //search.OnProgress += Search_OnProgress;
-
+                if (showProgress)
+                {
+                    search.OnProgress += Search_OnProgress;
+                }
                 WriteLine("searching...('q' to quit)\n");
                 stopwatch.Start();
                 search.Start(searchPath, includeSubdirectories, searchText, fileExtensions);
@@ -174,7 +175,7 @@ namespace Orvina.Console
                                 try
                                 {
                                     using (var p = Process.Start(new ProcessStartInfo(file) { UseShellExecute = true }))
-                                    {
+                                    { 
                                         fileOpened = true;
                                     };
                                 }
@@ -220,15 +221,14 @@ namespace Orvina.Console
                 {
                     var nosubFlag = args.Any(a => a == "-nosub" || a == "/nosub");
                     var debugFlag = args.Any(a => a == "-debug" || a == "/debug");
+                    var progressFlag = args.Any(a => a == "-progress" || a == "/progress");
 
                     searchPath = args[0];
                     searchText = args[1];
-                    fileExtensions = args.Length < 3 //not enough args to consider this
-                        || (args.Length == 3 && (nosubFlag || debugFlag))
-                        || (args.Length == 4 && nosubFlag && debugFlag)
-                         ? new string[] { } : args[2].Split(',');
+                    fileExtensions = args[2].Split(',');
                     includeSubdirectories = !nosubFlag;
                     showErrors = debugFlag;
+                    showProgress = progressFlag;
                     return AppState.Run;
                 }
             }
@@ -257,7 +257,7 @@ namespace Orvina.Console
             var fileParts = SplitAndKeepDelimiter(file, @"\");
 
             SetColor(ConsoleColor.Green);
-            System.Console.Write($"\rFound: " + string.Join("", fileParts.Select(p => p == fileParts.Last() ? "" : p)));
+            System.Console.Write($"\nFound: " + string.Join("", fileParts.Select(p => p == fileParts.Last() ? "" : p)));
             SetColor(ConsoleColor.Red);
             System.Console.Write(fileParts.Last());
 
@@ -296,13 +296,20 @@ namespace Orvina.Console
             PrintWipe(filePath);
         }
 
+        private int searchCount = 0;
+
         private void Search_OnSearchComplete()
         {
             PrintWipe("");
             stopwatch.Stop();
             SetColor(ConsoleColor.Gray);
-            WriteLine($"\nSearch Complete! {searchCount} Files searched in {Math.Round(stopwatch.Elapsed.TotalSeconds, 2)}s.\n");
+            WriteLine($"\nSearch Complete in {Math.Round(stopwatch.Elapsed.TotalSeconds, 2)}s!\n");
             searchEnded = true;
+
+            if (showProgress)
+            {
+                WriteLine($"\nSearched {searchCount} files\n");
+            }
         }
     }
 }

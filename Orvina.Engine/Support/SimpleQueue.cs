@@ -6,6 +6,10 @@ using System.Threading.Tasks;
 
 namespace Orvina.Engine.Support
 {
+    /// <summary>
+    /// small, efficient queue
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
     internal sealed class SimpleQueue<T>
     {
         private int currentIdx;
@@ -22,21 +26,29 @@ namespace Orvina.Engine.Support
             currentIdx = -1;
         }
 
-        public T[] ToArray
-        {
-            get
-            {
-                var temp = new T[currentIdx + 1];
-                Array.Copy(nodes, temp, temp.Length);
-                return temp;
-            }
-        }
+        //public T[] ToArray
+        //{
+        //    get
+        //    {
+        //        var temp = new T[currentIdx + 1];
+        //        Array.Copy(nodes, temp, temp.Length);
+        //        return temp;
+        //    }
+        //}
 
         public bool Any
         {
             get
             {
                 return currentIdx >= 0;
+            }
+        }
+
+        public int Count
+        {
+            get
+            {
+                return currentIdx +1;
             }
         }
 
