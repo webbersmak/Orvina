@@ -20,7 +20,7 @@ namespace Orvina.Engine
 
                 var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
                 var data = new byte[fs.Length];
-
+                
                 context.stream = fs;
                 context.data = data;
 
@@ -49,12 +49,7 @@ namespace Orvina.Engine
             {
                 if (LockHelper.RunLock(ref dataQLock, (out CompleteFile file1) =>
                 {
-                    if (dataQ.TryDequeue(out file1))
-                    {
-                        return true;
-                    }
-
-                    return false;
+                    return dataQ.TryDequeue(out file1);
                 }, out file))
                 {
                     return true;

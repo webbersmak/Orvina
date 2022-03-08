@@ -6,62 +6,107 @@
     /// <typeparam name="T"></typeparam>
     internal static class QFactory<T>
     {
-        private static readonly SimpleQueue<SimpleQueue<T>> Closed = new(32);
-        private static readonly Dictionary<int, SimpleQueue<T>> InUse = new(32);
-
+        private static readonly Dictionary<int, SimpleQueue<T>> ActiveQueues = new(32);
+        private static readonly SimpleQueue<SimpleQueue<T>> ClosedQueues = new(32);
+        private static SpinLock ActiveQueueLock = new();
         private static int maxId;
-
-        public static int Count(int id)
-        {
-            return InUse[id].Count;
-        }
 
         public static bool Any(int id)
         {
-            return InUse[id].Any;
+            return ActiveQueues[id].Any;
+        }
+
+        public static int Count(int id)
+        {
+            return ActiveQueues[id].Count;
         }
 
         public static T Dequeue(int id)
         {
-            return InUse[id].Dequeue();
+            return ActiveQueues[id].Dequeue();
         }
 
         public static void Enqueue(int id, T value)
         {
-            InUse[id].Enqueue(value);
+            ActiveQueues[id].Enqueue(value);
         }
 
         public static int GetQ()
         {
-            SimpleQueue<T> queue;
-            lock (InUse)
+            return Lock(() =>
             {
-                if (Closed.TryDequeue(out SimpleQueue<T> old))
-                {
-                    queue = old;
-                }
-                else
-                {
-                    queue = new SimpleQueue<T>(32);
-                }
-
-                InUse.Add(maxId, queue);
+                ActiveQueues.Add(maxId, ClosedQueues.TryDequeue(out SimpleQueue<T> old) ? old : new SimpleQueue<T>(32));
                 return maxId++;
-            }
+            });
+
+            //lock (ActiveQueues)
+            //{
+            //    if (ClosedQueues.TryDequeue(out SimpleQueue<T> old))
+            //    {
+            //        queue = old;
+            //    }
+            //    else
+            //    {
+            //        queue = new SimpleQueue<T>(32);
+            //    }
+
+            //    ActiveQueues.Add(maxId, queue);
+            //    return maxId++;
+            //}
         }
 
         public static void ReturnQ(int id)
         {
-            lock (InUse)
+            Lock(() =>
             {
-                Closed.Enqueue(InUse[id]);
-                InUse.Remove(id);
-            }
+                ClosedQueues.Enqueue(ActiveQueues[id]);
+                ActiveQueues.Remove(id);
+            });
+
+            //lock (ActiveQueues)
+            //{
+            //    ClosedQueues.Enqueue(ActiveQueues[id]);
+            //    ActiveQueues.Remove(id);
+            //}
         }
 
         public static bool TryDequeue(int id, out T value)
         {
-            return InUse[id].TryDequeue(out value);
+            return ActiveQueues[id].TryDequeue(out value);
+        }
+
+        private static void Lock(Action atomicAction)
+        {
+            var locked = false;
+            try
+            {
+                ActiveQueueLock.Enter(ref locked);
+                atomicAction();
+            }
+            finally
+            {
+                if (locked)
+                {
+                    ActiveQueueLock.Exit(false);
+                }
+            }
+        }
+
+        private static T1 Lock<T1>(Func<T1> atomicAction)
+        {
+            var locked = false;
+            try
+            {
+                ActiveQueueLock.Enter(ref locked);
+                return atomicAction();
+            }
+            finally
+            {
+                if (locked)
+                {
+                    ActiveQueueLock.Exit(false);
+                }
+            }
         }
     }
 }

@@ -207,6 +207,11 @@ namespace Orvina.Engine
             TryNotifySearchEnded();
         }
 
+        private readonly EnumerationOptions DirOptions = new()
+        {
+            BufferSize = 4096 * 2 
+        };
+
         private void MultiSearchInner(string path)
         {
             if (raiseProgress)
@@ -218,7 +223,7 @@ namespace Orvina.Engine
 
             try
             {
-                foreach (var entry in Directory.EnumerateDirectories(path))
+                foreach (var entry in Directory.EnumerateDirectories(path, "*", DirOptions))
                 {
                     QFactory<string>.Enqueue(queueId, entry);
                 }
@@ -263,7 +268,7 @@ namespace Orvina.Engine
             {
                 foreach (var fileType in fileExtensions)
                 {
-                    foreach (var fen in Directory.EnumerateFiles(path, $"*{fileType}"))
+                    foreach (var fen in Directory.EnumerateFiles(path, $"*{fileType}", DirOptions))
                     {
                         QFactory<string>.Enqueue(queueId, fen);
                     }
