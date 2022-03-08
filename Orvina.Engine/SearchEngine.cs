@@ -1,23 +1,34 @@
-﻿namespace Orvina.Engine
+﻿using Orvina.Engine.Support;
+
+namespace Orvina.Engine
 {
     public class SearchEngine : IDisposable
     {
-        private readonly object diskLock = new();
+        private static readonly EnumerationOptions DirOptions = new()
+        {
+            BufferSize = 4096 * 2,
+            AttributesToSkip = FileAttributes.System
+        };
+
         private readonly object endLock = new();
-        private readonly Queue<Event> eventsList = new();
-        private readonly Queue<string> files = new();
+        private readonly FileTractor fileTractor = new();
+        private readonly SimpleQueue<string> options = new(32);
         private readonly List<Task> tasks = new();
 
+        private bool[] downThreads;
         private string[] fileExtensions;
 
+        private int filesEnroute;
         private int finishedTasks;
-        private bool listingDirectory;
-        private bool listingFiles;
-        private bool searchEnded;
-        private bool stop;
-        private int taskCount;
 
-        public bool RaiseErrors { set; private get; }
+        private SpinLock optionsLock = new();
+        private bool raiseErrors;
+        private bool raiseProgress;
+
+        private string searchText;
+        private bool stop;
+
+        private SpinLock tractorLock = new();
 
         /// <summary>
         /// returns error message
@@ -32,7 +43,7 @@
         /// <summary>
         /// returns the currently scanned file
         /// </summary>
-        public event Action<string> OnProgress;
+        public event Action<string, bool> OnProgress;
 
         /// <summary>
         /// this will be raised when the search is complete. Expect this event even if Stop() is called
@@ -44,15 +55,13 @@
         /// </summary>
         public void Dispose()
         {
-            if (searchEnded)
-            {
-                //saw a bug (windows?) where a completed thread still showed as running
-                //this while() will let threads finish up if they needed a few
-                //extra microseconds to update their status
-                Task.WaitAll(tasks.ToArray());
-                tasks.ForEach(t => t.Dispose());
-                tasks.Clear();
-            }
+            //saw a bug (windows?) where a completed thread still showed as running
+            //this while() will let threads finish up if they needed a few
+            //extra microseconds to update their status
+            Task.WaitAll(tasks.ToArray());
+            tasks.ForEach(t => t.Dispose());
+            tasks.Clear();
+            options.Reset();
         }
 
         /// <summary>
@@ -71,48 +80,28 @@
             }
             else
             {
-                //clean up tasks from previous run
+                //clean up from previous run
                 Dispose();
             }
 
-            eventsList.Clear();
+            this.searchText = searchText;
+            raiseErrors = OnError != null;
+            raiseProgress = OnProgress != null;
+
+            options.Enqueue(searchPath);
             stop = false;
-            searchEnded = false;
+            filesEnroute = 0;
             finishedTasks = 0;
-            listingDirectory = true;
-            listingFiles = true;
 
             this.fileExtensions = fileExtensions;
 
-            var baseCount = 4;
-            this.taskCount = baseCount + (Environment.ProcessorCount > baseCount ? Environment.ProcessorCount - baseCount : 0);
-
-            //directory thread
-            tasks.Add(Task.Run(() =>
-            {
-                ListDirectory(searchPath, includeSubirectories);
-                listingDirectory = false;
-            }));
-
-            //list thread
-            tasks.Add(Task.Run(() =>
-            {
-                ListFiles();
-                listingFiles = false;
-                TryNotifySearchEnded();
-            }));
-
-            //notification thread
-            tasks.Add(Task.Run(DequeueEvents));
-
             //search threads
-            for (var i = 0; i <= taskCount-baseCount; i++)
+            var factory = new TaskFactory();
+            var threadTotal = Environment.ProcessorCount;
+            downThreads = new bool[threadTotal];
+            for (var runnerId = 0; runnerId < threadTotal; runnerId++)
             {
-                tasks.Add(Task.Run(() =>
-                {
-                    SearchFile(searchText);
-                    TryNotifySearchEnded();
-                }));
+                tasks.Add(factory.StartNew((param) => MultiSearch((int)param), runnerId));
             }
         }
 
@@ -123,252 +112,236 @@
         public void Stop()
         {
             stop = true; //let threads run to completion
+            //HandleEvent(new OnSearchCompleteEvent());
         }
 
-        private void DequeueEvents()
+        private void HandleEvent(Event e)
         {
-            var queue = new Queue<Event>();
-            while (!searchEnded)
+            lock (this)
             {
-                lock (eventsList)
+                switch (e.EventType)
                 {
-                    while (eventsList.TryDequeue(out Event e))
-                    {
-                        queue.Enqueue(e);
-                    }
-                }
-
-                while (queue.TryDequeue(out Event e))
-                {
-                    if (stop)
-                    {
-                        this.searchEnded = true;
-                        this.OnSearchComplete?.Invoke();
+                    case Event.EventTypes.OnProgress:
+                        var pe = (OnProgressEvent)e;
+                        OnProgress?.Invoke(pe.File, pe.IsFile);
                         break;
-                    }
 
-                    switch (e.EventType)
-                    {
-                        case Event.EventTypes.OnProgress:
-                            this.OnProgress?.Invoke(((OnProgressEvent)e).File);
-                            break;
+                    case Event.EventTypes.OnFileFound:
+                        var fileEvent = (OnFileFoundEvent)e;
+                        OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                        break;
 
-                        case Event.EventTypes.OnFileFound:
-                            var fileEvent = (OnFileFoundEvent)e;
-                            this.OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
-                            break;
+                    case Event.EventTypes.OnSearchComplete:
+                        OnSearchComplete?.Invoke();
+                        break;
 
-                        case Event.EventTypes.OnSearchComplete:
-                            this.searchEnded = true;
-                            this.OnSearchComplete?.Invoke();
-                            break;
-
-                        case Event.EventTypes.OnError:
-                            this.OnError?.Invoke(((OnErrorEvent)e).Error);
-                            break;
-                    }
+                    case Event.EventTypes.OnError:
+                        OnError?.Invoke(((OnErrorEvent)e).Error);
+                        break;
                 }
             }
         }
 
-        private void ListFiles()
+        private void MultiSearch(int runnerId)
         {
-            string path;
-            do
+            var processing = true;
+            while (processing && !stop)
             {
-                path = "";
-                lock (directories)
+                LockHelper.RunLock(ref optionsLock, (out string path) =>
                 {
-                    if (directories.TryDequeue(out string result))
-                    {
-                        path = result;
-                    }
-                }
+                    return options.TryDequeue(out path);
+                }, out string path);
+
+                //lock (options)
+                //{
+                //    if (options.TryDequeue(out string next))
+                //    {
+                //        path = next;
+                //    }
+                //}
 
                 if (!string.IsNullOrEmpty(path))
                 {
-                    try
-                    {
-                        var filesToAdd = Directory.GetFiles(path).Where(file => fileExtensions.Any(t => file.EndsWith(t) || !fileExtensions.Any()));
-                        if (filesToAdd.Any())
-                        {
-                            lock (files)
-                            {
-                                foreach (var entry in filesToAdd)
-                                {
-                                    files.Enqueue(entry);
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        if (RaiseErrors)
-                        {
-                            QueueEvent(new OnErrorEvent(e.ToString()));
-                        }
-                    }
-                }
-            } while (!stop && (listingDirectory || !string.IsNullOrEmpty(path)));
-        }
-
-        private readonly Queue<string> directories = new();
-
-
-        private void ListDirectory(string path, bool includeSubirectories)
-        {
-            if (stop)
-            {
-                return;
-            }
-
-            QueueEvent(new OnProgressEvent(path));
-
-            try
-            {
-                if (includeSubirectories)
-                {
-                    var dirs = Directory.GetDirectories(path);
-
-                    if (dirs.Any())
-                    {
-                        lock (directories)
-                        {
-                            foreach (var dir in dirs)
-                            {
-                                directories.Enqueue(dir);
-                            }
-                        }
-                    }
-
-                    foreach (var dir in dirs)
-                    {
-                        ListDirectory(dir, includeSubirectories);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                if (RaiseErrors)
-                {
-                    QueueEvent(new OnErrorEvent(e.ToString()));
-                }
-            }
-        }
-
-        private void QueueEvent(Event eventType)
-        {
-            lock (eventsList)
-            {
-                eventsList.Enqueue(eventType);
-            }
-        }
-
-        private void SearchFile(string searchText)
-        {
-            string target;
-            var matchingLines = new Queue<string>();
-
-            var sw = new SpinWait();
-
-            do
-            {
-                target = "";
-
-                lock (files)
-                {
-                    if (files.TryDequeue(out string result))
-                    {
-                        target = result;
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(target))
-                {
-                    try
-                    {
-                        QueueEvent(new OnProgressEvent(Path.GetFileName(target)));
-
-                        try //bulk read
-                        {
-                            string all;
-                            lock (diskLock) //get on/off disk ASAP
-                            {
-                                all = File.ReadAllText(target);
-                            }
-
-                            //most cases the file won't contain the searchText at all
-                            if (all.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                            {
-                                var lineNum = 0;
-                                foreach (var line in all.Split("\n"))
-                                {
-                                    if (stop)
-                                    {
-                                        break;
-                                    }
-
-                                    lineNum++;
-                                    if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        matchingLines.Enqueue($"({lineNum}) " + line);
-                                    }
-                                }
-                            }
-                        }
-                        catch (OutOfMemoryException)
-                        {
-                            try //line by line
-                            {
-                                using (TextReader reader = new StreamReader(target))
-                                {
-                                    string line;
-                                    while ((line = reader.ReadLine()) != null && !stop)
-                                    {
-                                        if (line.Contains(searchText, StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            matchingLines.Enqueue(line);
-                                        }
-                                    }
-                                }
-                            }
-                            catch
-                            {
-                                throw;
-                            }
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        if (RaiseErrors)
-                        {
-                            QueueEvent(new OnErrorEvent(e.ToString()));
-                        }
-                    }
-
-                    if (matchingLines.Any())
-                    {
-                        QueueEvent(new OnFileFoundEvent(target, matchingLines.ToArray()));
-                        matchingLines.Clear();
-                    }
+                    downThreads[runnerId] = true;
+                    MultiSearchInner(path);
+                    downThreads[runnerId] = false;
                 }
                 else
                 {
-                    sw.SpinOnce();
-                }
-            } while (!stop && (!string.IsNullOrEmpty(target) || listingFiles));
-        }
-
-        private void TryNotifySearchEnded()
-        {
-            lock (endLock)
-            {
-                finishedTasks++;
-                if (finishedTasks == taskCount)
-                {
-                    QueueEvent(new OnSearchCompleteEvent());
+                    processing = downThreads.Any(t => t == true);
                 }
             }
+
+            bool waitingForFiles;
+            do
+            {
+                waitingForFiles = LockHelper.RunLock(ref tractorLock, () =>
+                {
+                    return --filesEnroute >= 0;
+                });
+
+
+                //lock (fileTractor)
+                //{
+                //    waitingForFiles = --filesEnroute >= 0;
+                //}
+
+                if (waitingForFiles && !stop)
+                {
+                    if (fileTractor.TryGetFile(out FileTractor.CompleteFile nextFile))
+                    {
+                        ScanFile(nextFile);
+                    }
+                }
+            } while (waitingForFiles && !stop);
+
+            void TryNotifySearchEnded()
+            {
+                lock (endLock)
+                {
+                    if (++finishedTasks == tasks.Count)
+                    {
+                        HandleEvent(new OnSearchCompleteEvent());
+                    }
+                }
+            }
+
+            TryNotifySearchEnded();
+        }
+        private void MultiSearchInner(string path)
+        {
+            if (raiseProgress)
+            {
+                HandleEvent(new OnProgressEvent(path, false));
+            }
+
+            var queueId = QFactory<string>.GetQ();
+
+            try
+            {
+                foreach (var entry in Directory.EnumerateDirectories(path, "*", DirOptions))
+                {
+                    QFactory<string>.Enqueue(queueId, entry);
+                }
+
+                if (QFactory<string>.Any(queueId))
+                { 
+                    LockHelper.RunLock(ref optionsLock, () =>
+                    {
+                        while (QFactory<string>.TryDequeue(queueId, out string r))
+                        {
+                            options.Enqueue(r);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                if (raiseErrors)
+                {
+                    HandleEvent(new OnErrorEvent(ex.ToString()));
+                }
+
+                QFactory<string>.ReturnQ(queueId);
+                return;
+            }
+
+            try
+            {
+                foreach (var fileType in fileExtensions)
+                {
+                    foreach (var fen in Directory.EnumerateFiles(path, $"*{fileType}", DirOptions))
+                    {
+                        QFactory<string>.Enqueue(queueId, fen);
+                    }
+                }
+
+                while (QFactory<string>.TryDequeue(queueId, out string file) && !stop)
+                {
+                    if (fileTractor.TryEnqueue(file))
+                    {
+                        LockHelper.RunLock(ref tractorLock, () =>
+                        {
+                            filesEnroute++;
+                        });
+                        //lock (fileTractor)
+                        //{
+                        //    filesEnroute++;
+                        //}
+                    }
+
+                    if (raiseProgress)
+                    {
+                        HandleEvent(new OnProgressEvent(Path.GetFileName(file), true));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (raiseErrors)
+                {
+                    HandleEvent(new OnErrorEvent(ex.ToString()));
+                }
+            }
+            QFactory<string>.ReturnQ(queueId);
+        }
+
+        private void ScanFile(FileTractor.CompleteFile file)
+        {
+            var matchingLines = QFactory<string>.GetQ();
+
+            try
+            {
+                var all = System.Text.Encoding.UTF8.GetString(file.data);
+
+                //most cases the file won't contain the searchText at all
+                var searchTextIdx = 0;
+                var endFileIdx = all.Length - 1;
+                while (searchTextIdx < endFileIdx && (searchTextIdx = all.IndexOf(searchText, searchTextIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && !stop)
+                {
+                    var lineStartIdx = all.LastIndexOf("\n", searchTextIdx);
+                    var lineEndIdx = all.IndexOf("\n", searchTextIdx + searchText.Length);
+
+                    lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : searchTextIdx;
+                    lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextIdx + searchText.Length;
+
+                    var extractedLine = all.Substring(lineStartIdx, lineEndIdx - lineStartIdx);
+
+                    int newLineIdx;//idx of \n character
+                    int startIdx = 0;
+                    var lineNum = 1;
+                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) < lineStartIdx && !stop)
+                    {
+                        startIdx = newLineIdx + 1;
+                        lineNum++;
+                    }
+
+                    QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {extractedLine}");
+
+                    searchTextIdx++;
+                }
+            }
+            catch (Exception ex)
+            {
+                if (raiseErrors)
+                {
+                    HandleEvent(new OnErrorEvent(ex.ToString()));
+                }
+            }
+
+            if (QFactory<string>.Any(matchingLines))
+            {
+                var lines = new string[QFactory<string>.Count(matchingLines)];
+                var i = 0;
+                while (QFactory<string>.TryDequeue(matchingLines, out string value) && !stop)
+                {
+                    lines[i++] = value;
+                }
+
+                HandleEvent(new OnFileFoundEvent(file.fileName, lines));
+            }
+
+            QFactory<string>.ReturnQ(matchingLines);
         }
     }
 }
