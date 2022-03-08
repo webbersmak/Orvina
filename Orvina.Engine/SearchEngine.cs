@@ -4,6 +4,12 @@ namespace Orvina.Engine
 {
     public class SearchEngine : IDisposable
     {
+        private static readonly EnumerationOptions DirOptions = new()
+        {
+            BufferSize = 4096 * 2,
+            AttributesToSkip = FileAttributes.System
+        };
+
         private readonly object endLock = new();
         private readonly FileTractor fileTractor = new();
         private readonly SimpleQueue<string> options = new(32);
@@ -15,11 +21,14 @@ namespace Orvina.Engine
         private int filesEnroute;
         private int finishedTasks;
 
+        private SpinLock optionsLock = new();
         private bool raiseErrors;
         private bool raiseProgress;
 
         private string searchText;
         private bool stop;
+
+        private SpinLock tractorLock = new();
 
         /// <summary>
         /// returns error message
@@ -103,7 +112,7 @@ namespace Orvina.Engine
         public void Stop()
         {
             stop = true; //let threads run to completion
-            HandleEvent(new OnSearchCompleteEvent());
+            //HandleEvent(new OnSearchCompleteEvent());
         }
 
         private void HandleEvent(Event e)
@@ -132,9 +141,6 @@ namespace Orvina.Engine
                 }
             }
         }
-
-        private SpinLock optionsLock = new();
-        private SpinLock tractorLock = new();
 
         private void MultiSearch(int runnerId)
         {
@@ -202,13 +208,6 @@ namespace Orvina.Engine
 
             TryNotifySearchEnded();
         }
-
-        private readonly EnumerationOptions DirOptions = new()
-        {
-            BufferSize = 4096 * 2,
-            AttributesToSkip = FileAttributes.System
-        };
-
         private void MultiSearchInner(string path)
         {
             if (raiseProgress)
@@ -226,29 +225,14 @@ namespace Orvina.Engine
                 }
 
                 if (QFactory<string>.Any(queueId))
-                {
-                    MultiSearchInner(QFactory<string>.Dequeue(queueId));
-
-                    if (QFactory<string>.Any(queueId))
+                { 
+                    LockHelper.RunLock(ref optionsLock, () =>
                     {
-
-                        LockHelper.RunLock(ref optionsLock, () =>
+                        while (QFactory<string>.TryDequeue(queueId, out string r))
                         {
-                            while (QFactory<string>.TryDequeue(queueId, out string r))
-                            {
-                                options.Enqueue(r);
-                            }
-                        });
-
-
-                        //lock (options)
-                        //{
-                        //    while (QFactory<string>.TryDequeue(queueId, out string r))
-                        //    {
-                        //        options.Enqueue(r);
-                        //    }
-                        //}
-                    }
+                            options.Enqueue(r);
+                        }
+                    });
                 }
             }
             catch (Exception ex)
@@ -272,7 +256,7 @@ namespace Orvina.Engine
                     }
                 }
 
-                while (QFactory<string>.TryDequeue(queueId, out string file))
+                while (QFactory<string>.TryDequeue(queueId, out string file) && !stop)
                 {
                     if (fileTractor.TryEnqueue(file))
                     {
@@ -313,7 +297,7 @@ namespace Orvina.Engine
                 //most cases the file won't contain the searchText at all
                 var searchTextIdx = 0;
                 var endFileIdx = all.Length - 1;
-                while (searchTextIdx < endFileIdx && (searchTextIdx = all.IndexOf(searchText, searchTextIdx, StringComparison.OrdinalIgnoreCase)) >= 0)
+                while (searchTextIdx < endFileIdx && (searchTextIdx = all.IndexOf(searchText, searchTextIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && !stop)
                 {
                     var lineStartIdx = all.LastIndexOf("\n", searchTextIdx);
                     var lineEndIdx = all.IndexOf("\n", searchTextIdx + searchText.Length);
@@ -326,7 +310,7 @@ namespace Orvina.Engine
                     int newLineIdx;//idx of \n character
                     int startIdx = 0;
                     var lineNum = 1;
-                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) < lineStartIdx)
+                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) < lineStartIdx && !stop)
                     {
                         startIdx = newLineIdx + 1;
                         lineNum++;
@@ -349,7 +333,7 @@ namespace Orvina.Engine
             {
                 var lines = new string[QFactory<string>.Count(matchingLines)];
                 var i = 0;
-                while (QFactory<string>.TryDequeue(matchingLines, out string value))
+                while (QFactory<string>.TryDequeue(matchingLines, out string value) && !stop)
                 {
                     lines[i++] = value;
                 }
