@@ -136,6 +136,9 @@ namespace Orvina.Engine
             }
         }
 
+        private SpinLock optionsLock = new();
+        private SpinLock tractorLock = new();
+
         private void MultiSearch(int runnerId)
         {
             string path;
@@ -143,13 +146,18 @@ namespace Orvina.Engine
             while (processing && !stop)
             {
                 path = null;
-                lock (options)
-                {
-                    if (options.TryDequeue(out string next))
-                    {
-                        path = next;
-                    }
-                }
+
+                LockHelper.RunLock(ref optionsLock, (out string path) => {
+                    return options.TryDequeue(out path);
+                }, out path);
+
+                //lock (options)
+                //{
+                //    if (options.TryDequeue(out string next))
+                //    {
+                //        path = next;
+                //    }
+                //}
 
                 if (!string.IsNullOrEmpty(path))
                 {
@@ -166,10 +174,15 @@ namespace Orvina.Engine
             bool waitingForFiles;
             do
             {
-                lock (fileTractor)
-                {
-                    waitingForFiles = --filesEnroute >= 0;
-                }
+                waitingForFiles = LockHelper.RunLock(ref tractorLock, () => {
+                    return --filesEnroute >= 0;
+                });
+
+
+                //lock (fileTractor)
+                //{
+                //    waitingForFiles = --filesEnroute >= 0;
+                //}
 
                 if (waitingForFiles && !stop)
                 {
@@ -194,6 +207,11 @@ namespace Orvina.Engine
             TryNotifySearchEnded();
         }
 
+        private readonly EnumerationOptions DirOptions = new()
+        {
+            BufferSize = 4096 * 2 
+        };
+
         private void MultiSearchInner(string path)
         {
             if (raiseProgress)
@@ -205,7 +223,7 @@ namespace Orvina.Engine
 
             try
             {
-                foreach (var entry in Directory.EnumerateDirectories(path))
+                foreach (var entry in Directory.EnumerateDirectories(path, "*", DirOptions))
                 {
                     QFactory<string>.Enqueue(queueId, entry);
                 }
@@ -216,13 +234,22 @@ namespace Orvina.Engine
 
                     if (QFactory<string>.Any(queueId))
                     {
-                        lock (options)
-                        {
+
+                        LockHelper.RunLock(ref optionsLock, () => {
                             while (QFactory<string>.TryDequeue(queueId, out string r))
                             {
                                 options.Enqueue(r);
                             }
-                        }
+                        });
+
+
+                        //lock (options)
+                        //{
+                        //    while (QFactory<string>.TryDequeue(queueId, out string r))
+                        //    {
+                        //        options.Enqueue(r);
+                        //    }
+                        //}
                     }
                 }
             }
@@ -241,7 +268,7 @@ namespace Orvina.Engine
             {
                 foreach (var fileType in fileExtensions)
                 {
-                    foreach (var fen in Directory.EnumerateFiles(path, $"*{fileType}"))
+                    foreach (var fen in Directory.EnumerateFiles(path, $"*{fileType}", DirOptions))
                     {
                         QFactory<string>.Enqueue(queueId, fen);
                     }
@@ -251,10 +278,13 @@ namespace Orvina.Engine
                 {
                     if (fileTractor.TryEnqueue(file))
                     {
-                        lock (fileTractor)
-                        {
+                        LockHelper.RunLock(ref tractorLock, () => {
                             filesEnroute++;
-                        }
+                        });
+                        //lock (fileTractor)
+                        //{
+                        //    filesEnroute++;
+                        //}
                     }
 
                     if (raiseProgress)
