@@ -6,7 +6,9 @@
     /// <typeparam name="T"></typeparam>
     internal sealed class SimpleQueue<T>
     {
-        private int currentIdx;
+        private int frontIdx;//[x][][]
+        private int rearIdx;//[][][x]
+
         private T[] nodes;
 
         public SimpleQueue(int size = 0)
@@ -17,12 +19,14 @@
         public void Reset(int size = 0)
         {
             nodes = new T[size];
-            currentIdx = -1;
+            frontIdx = -1;
+            rearIdx = -1;
         }
 
         public void Clear()
         {
-            currentIdx = -1;
+            frontIdx = -1;
+            rearIdx = -1;
         }
 
         //public T[] ToArray
@@ -47,28 +51,35 @@
         {
             get
             {
-                return currentIdx + 1;
+                return rearIdx < 0 ? 0 : rearIdx - frontIdx + 1;//[2][3][4]
             }
         }
 
         public T Dequeue()
         {
-            var result = nodes[currentIdx];
+            var result = nodes[frontIdx];
 
-            var desiredIdx = currentIdx - 1;
+            var desiredIdx = frontIdx + 1;//[x][x]
 
+            if (frontIdx > desiredIdx)
+            {
+                Clear();
+            }
+            else
+            {
+                frontIdx = desiredIdx;
+            }
             //if (desiredIdx < (nodes.Length - 1) / 2) //need to shrink
             //{
             //    Array.Resize(ref nodes, desiredIdx + 1);
             //}
 
-            currentIdx = desiredIdx;
             return result;
         }
 
         public void Enqueue(T value)
         {
-            var desiredIdx = currentIdx + 1; //on first enqueu will be 0
+            var desiredIdx = rearIdx + 1; //on first enqueu will be 0
 
             if (desiredIdx > nodes.Length - 1) //need to grow
             {
@@ -77,7 +88,11 @@
             }
 
             nodes[desiredIdx] = value;
-            currentIdx = desiredIdx;
+            rearIdx = desiredIdx;
+            if (frontIdx < 0)
+            {
+                frontIdx = rearIdx;
+            }
         }
 
         public bool TryDequeue(out T value)
