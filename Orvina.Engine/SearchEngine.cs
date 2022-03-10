@@ -310,16 +310,16 @@ namespace Orvina.Engine
 
                     int newLineIdx;//idx of \n character
                     int startIdx = 0;
-                    var lineNum = 0;
+                    var lineNum = 1;
                     while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < lineStartIdx && !stop)
                     {
                         startIdx = newLineIdx + 1;
-                        ++lineNum;
+                        lineNum++;
                     }
 
-                    QFactory<string>.Enqueue(matchingLines, lineNum > 0 ? $"({lineNum}) {extractedLine}" : $"(??) {extractedLine}");
+                    QFactory<string>.Enqueue(matchingLines, lineNum > 1 ? $"({lineNum}) {extractedLine}" : $"(??) {extractedLine}");
 
-                    searchTextIdx++;
+                    searchTextIdx = lineEndIdx;
                 }
             }
             catch (Exception ex)
