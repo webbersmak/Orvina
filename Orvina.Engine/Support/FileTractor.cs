@@ -2,15 +2,19 @@
 
 namespace Orvina.Engine
 {
-    internal sealed class FileTractor
+    internal sealed class FileTractor : IDisposable
     {
         private readonly Dictionary<int, AsyncContext> asyncReads = new(32);
         private readonly SimpleQueue<CompleteFile> dataQ = new(32);
 
-        private readonly SpinWait spinWait = new();
-        private SpinLock asyncLock = new();
+        private readonly ManualResetEventSlim manualReset = new();
         private int callId;
         private SpinLock dataQLock = new();
+
+        public void Dispose()
+        {
+            manualReset.Dispose();
+        }
 
         public bool TryEnqueue(string file)
         {
@@ -20,15 +24,15 @@ namespace Orvina.Engine
 
                 var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
                 var data = new byte[fs.Length];
-                
+
                 context.stream = fs;
                 context.data = data;
 
-                LockHelper.RunLock(ref asyncLock, () =>
+                lock (asyncReads)
                 {
                     asyncReads.Add(++callId, context);
                     fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
-                });
+                }
             }
             catch (Exception ex)
             {
@@ -54,25 +58,27 @@ namespace Orvina.Engine
                 {
                     return true;
                 }
-
-                spinWait.SpinOnce();
+                else
+                {
+                    manualReset.Wait();
+                }
             }
         }
-
         private void OnFileCallback(IAsyncResult ar)
         {
             var callbackId = (int)ar.AsyncState;
 
-            var context = LockHelper.RunLock(ref asyncLock, () =>
+            AsyncContext context;
+            lock (asyncReads)//don't use spinlock here
             {
-                var context = asyncReads[callbackId];
+                context = asyncReads[callbackId];
                 asyncReads.Remove(callbackId);
-                return context;
-            });
+            }
 
             LockHelper.RunLock(ref dataQLock, () =>
             {
                 dataQ.Enqueue(new CompleteFile { data = context.data, fileName = context.fileName });
+                manualReset.Set();
             });
 
             context.stream.Dispose();

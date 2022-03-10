@@ -20,6 +20,11 @@
             currentIdx = -1;
         }
 
+        public void Clear()
+        {
+            currentIdx = -1;
+        }
+
         //public T[] ToArray
         //{
         //    get
@@ -34,7 +39,7 @@
         {
             get
             {
-                return currentIdx >= 0;
+                return Count > 0;
             }
         }
 
@@ -52,10 +57,10 @@
 
             var desiredIdx = currentIdx - 1;
 
-            if (desiredIdx < (nodes.Length - 1) / 2) //need to shrink
-            {
-                Array.Resize(ref nodes, desiredIdx + 1);
-            }
+            //if (desiredIdx < (nodes.Length - 1) / 2) //need to shrink
+            //{
+            //    Array.Resize(ref nodes, desiredIdx + 1);
+            //}
 
             currentIdx = desiredIdx;
             return result;

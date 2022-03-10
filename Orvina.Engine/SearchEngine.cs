@@ -10,21 +10,21 @@ namespace Orvina.Engine
             AttributesToSkip = FileAttributes.System
         };
 
-        private readonly object endLock = new();
-        private readonly FileTractor fileTractor = new();
-        private readonly SimpleQueue<string> options = new(32);
+        private FileTractor fileTractor = new();
+        private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
-
-        private bool[] downThreads;
+        private bool[] emptyRunners;
+        private SpinLock endLock = new();
         private string[] fileExtensions;
 
         private int filesEnroute;
         private int finishedTasks;
 
-        private SpinLock optionsLock = new();
         private bool raiseErrors;
         private bool raiseProgress;
 
+        private SpinLock runnerListLock = new();
+        private int runnerQueueId;
         private string searchText;
         private bool stop;
 
@@ -61,7 +61,9 @@ namespace Orvina.Engine
             Task.WaitAll(tasks.ToArray());
             tasks.ForEach(t => t.Dispose());
             tasks.Clear();
-            options.Reset();
+            runnerList.Clear();
+
+            fileTractor.Dispose();
         }
 
         /// <summary>
@@ -84,11 +86,13 @@ namespace Orvina.Engine
                 Dispose();
             }
 
+            fileTractor = new();
+
             this.searchText = searchText;
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
-            options.Enqueue(searchPath);
+            runnerQueueId = 0;
             stop = false;
             filesEnroute = 0;
             finishedTasks = 0;
@@ -98,7 +102,15 @@ namespace Orvina.Engine
             //search threads
             var factory = new TaskFactory();
             var threadTotal = Environment.ProcessorCount;
-            downThreads = new bool[threadTotal];
+            emptyRunners = new bool[threadTotal];
+
+            for (var runnerId = 0; runnerId < threadTotal; runnerId++)
+            {
+                emptyRunners[runnerId] = false;
+                runnerList.Add(runnerId, new SimpleQueue<string>());
+            }
+            runnerList[0].Enqueue(searchPath);
+
             for (var runnerId = 0; runnerId < threadTotal; runnerId++)
             {
                 tasks.Add(factory.StartNew((param) => MultiSearch((int)param), runnerId));
@@ -145,30 +157,38 @@ namespace Orvina.Engine
         private void MultiSearch(int runnerId)
         {
             var processing = true;
+            string path;
+            bool gotItem;
             while (processing && !stop)
             {
-                LockHelper.RunLock(ref optionsLock, (out string path) =>
+                var target = runnerList[runnerId];
+                lock (target) //lock my list
                 {
-                    return options.TryDequeue(out path);
-                }, out string path);
+                    gotItem = target.TryDequeue(out path);
+                    LockHelper.RunLock(ref endLock, () =>
+                    {
+                        emptyRunners[runnerId] = !gotItem;
+                    });
+                }
 
-                //lock (options)
-                //{
-                //    if (options.TryDequeue(out string next))
-                //    {
-                //        path = next;
-                //    }
-                //}
-
-                if (!string.IsNullOrEmpty(path))
+                if (gotItem)
                 {
-                    downThreads[runnerId] = true;
                     MultiSearchInner(path);
-                    downThreads[runnerId] = false;
                 }
                 else
                 {
-                    processing = downThreads.Any(t => t == true);
+                    processing = LockHelper.RunLock(ref endLock, () =>
+                    {
+                        foreach (var empty in emptyRunners)
+                        {
+                            if (!empty)
+                            {
+                                return true; //if processing get out 
+                            }
+                        }
+
+                        return false;
+                    });
                 }
             }
 
@@ -179,12 +199,6 @@ namespace Orvina.Engine
                 {
                     return --filesEnroute >= 0;
                 });
-
-
-                //lock (fileTractor)
-                //{
-                //    waitingForFiles = --filesEnroute >= 0;
-                //}
 
                 if (waitingForFiles && !stop)
                 {
@@ -197,7 +211,7 @@ namespace Orvina.Engine
 
             void TryNotifySearchEnded()
             {
-                lock (endLock)
+                lock (tasks)
                 {
                     if (++finishedTasks == tasks.Count)
                     {
@@ -208,6 +222,7 @@ namespace Orvina.Engine
 
             TryNotifySearchEnded();
         }
+
         private void MultiSearchInner(string path)
         {
             if (raiseProgress)
@@ -215,24 +230,21 @@ namespace Orvina.Engine
                 HandleEvent(new OnProgressEvent(path, false));
             }
 
-            var queueId = QFactory<string>.GetQ();
-
             try
             {
                 foreach (var entry in Directory.EnumerateDirectories(path, "*", DirOptions))
                 {
-                    QFactory<string>.Enqueue(queueId, entry);
-                }
-
-                if (QFactory<string>.Any(queueId))
-                { 
-                    LockHelper.RunLock(ref optionsLock, () =>
+                    int targetId = LockHelper.RunLock(ref runnerListLock, () =>
                     {
-                        while (QFactory<string>.TryDequeue(queueId, out string r))
-                        {
-                            options.Enqueue(r);
-                        }
+                        runnerQueueId += runnerQueueId + 1 == runnerList.Count ? -runnerQueueId : 1;
+                        return runnerQueueId;
                     });
+
+                    var target = runnerList[targetId];
+                    lock (target) //lock my list
+                    {
+                        target.Enqueue(entry);
+                    }
                 }
             }
             catch (Exception ex)
@@ -242,7 +254,6 @@ namespace Orvina.Engine
                     HandleEvent(new OnErrorEvent(ex.ToString()));
                 }
 
-                QFactory<string>.ReturnQ(queueId);
                 return;
             }
 
@@ -250,29 +261,20 @@ namespace Orvina.Engine
             {
                 foreach (var fileType in fileExtensions)
                 {
-                    foreach (var fen in Directory.EnumerateFiles(path, $"*{fileType}", DirOptions))
+                    foreach (var file in Directory.EnumerateFiles(path, $"*{fileType}", DirOptions))
                     {
-                        QFactory<string>.Enqueue(queueId, fen);
-                    }
-                }
-
-                while (QFactory<string>.TryDequeue(queueId, out string file) && !stop)
-                {
-                    if (fileTractor.TryEnqueue(file))
-                    {
-                        LockHelper.RunLock(ref tractorLock, () =>
+                        if (fileTractor.TryEnqueue(file))
                         {
-                            filesEnroute++;
-                        });
-                        //lock (fileTractor)
-                        //{
-                        //    filesEnroute++;
-                        //}
-                    }
+                            LockHelper.RunLock(ref tractorLock, () =>
+                            {
+                                filesEnroute++;
+                            });
+                        }
 
-                    if (raiseProgress)
-                    {
-                        HandleEvent(new OnProgressEvent(Path.GetFileName(file), true));
+                        if (raiseProgress)
+                        {
+                            HandleEvent(new OnProgressEvent(Path.GetFileName(file), true));
+                        }
                     }
                 }
             }
@@ -283,7 +285,6 @@ namespace Orvina.Engine
                     HandleEvent(new OnErrorEvent(ex.ToString()));
                 }
             }
-            QFactory<string>.ReturnQ(queueId);
         }
 
         private void ScanFile(FileTractor.CompleteFile file)
@@ -309,14 +310,14 @@ namespace Orvina.Engine
 
                     int newLineIdx;//idx of \n character
                     int startIdx = 0;
-                    var lineNum = 1;
-                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) < lineStartIdx && !stop)
+                    var lineNum = 0;
+                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < lineStartIdx && !stop)
                     {
                         startIdx = newLineIdx + 1;
-                        lineNum++;
+                        ++lineNum;
                     }
 
-                    QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {extractedLine}");
+                    QFactory<string>.Enqueue(matchingLines, lineNum > 0 ? $"({lineNum}) {extractedLine}" : $"(??) {extractedLine}");
 
                     searchTextIdx++;
                 }
@@ -333,9 +334,12 @@ namespace Orvina.Engine
             {
                 var lines = new string[QFactory<string>.Count(matchingLines)];
                 var i = 0;
-                while (QFactory<string>.TryDequeue(matchingLines, out string value) && !stop)
+                while (QFactory<string>.TryDequeue(matchingLines, out string value))
                 {
                     lines[i++] = value;
+
+                    if (stop)
+                        break;
                 }
 
                 HandleEvent(new OnFileFoundEvent(file.fileName, lines));
