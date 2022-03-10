@@ -23,7 +23,7 @@ namespace Orvina.Engine
         private bool raiseErrors;
         private bool raiseProgress;
 
-        private SpinLock runnerListLock = new();
+        private SpinLock runnerQueueIdLock = new();
         private int runnerQueueId;
         private string searchText;
         private bool stop;
@@ -109,7 +109,9 @@ namespace Orvina.Engine
                 emptyRunners[runnerId] = false;
                 runnerList.Add(runnerId, new SimpleQueue<string>());
             }
+
             runnerList[0].Enqueue(searchPath);
+            totalQueueCount = 1;
 
             for (var runnerId = 0; runnerId < threadTotal; runnerId++)
             {
@@ -174,21 +176,30 @@ namespace Orvina.Engine
                 if (gotItem)
                 {
                     MultiSearchInner(path);
+                    LockHelper.RunLock(ref runnerListLock, () =>
+                    {
+                        //Console.WriteLine($"{totalQueueCount} totalQueueCount--");
+                        totalQueueCount--;
+                    });
                 }
                 else
                 {
-                    processing = LockHelper.RunLock(ref endLock, () =>
-                    {
-                        foreach (var empty in emptyRunners)
-                        {
-                            if (!empty)
-                            {
-                                return true; //if processing get out 
-                            }
-                        }
-
-                        return false;
+                    processing = LockHelper.RunLock(ref runnerListLock, () => {
+                        return totalQueueCount > 0;
                     });
+
+                    //processing = LockHelper.RunLock(ref endLock, () =>
+                    //{
+                    //    foreach (var empty in emptyRunners)
+                    //    {
+                    //        if (!empty)
+                    //        {
+                    //            return true; //if processing get out 
+                    //        }
+                    //    }
+
+                    //    return false;
+                    //});
                 }
             }
 
@@ -223,6 +234,10 @@ namespace Orvina.Engine
             TryNotifySearchEnded();
         }
 
+
+        private SpinLock runnerListLock = new();
+        private int totalQueueCount;
+
         private void MultiSearchInner(string path)
         {
             if (raiseProgress)
@@ -234,13 +249,19 @@ namespace Orvina.Engine
             {
                 foreach (var entry in Directory.EnumerateDirectories(path, "*", DirOptions))
                 {
-                    int targetId = LockHelper.RunLock(ref runnerListLock, () =>
+                    LockHelper.RunLock(ref runnerListLock, () =>
+                    {
+                        //Console.WriteLine($"{totalQueueCount} totalQueueCount++");
+                        totalQueueCount++;
+                    });
+
+                    int targetQueueId = LockHelper.RunLock(ref runnerQueueIdLock, () =>
                     {
                         runnerQueueId += runnerQueueId + 1 == runnerList.Count ? -runnerQueueId : 1;
                         return runnerQueueId;
                     });
 
-                    var target = runnerList[targetId];
+                    var target = runnerList[targetQueueId];
                     lock (target) //lock my list
                     {
                         target.Enqueue(entry);

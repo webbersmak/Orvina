@@ -61,7 +61,7 @@
 
             var desiredIdx = frontIdx + 1;//[x][x]
 
-            if (frontIdx > desiredIdx)
+            if (desiredIdx > rearIdx)
             {
                 Clear();
             }
