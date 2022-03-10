@@ -53,7 +53,7 @@ namespace Orvina.Console
                     WriteLine("     -debug              If given, show error messages.");
                     WriteLine("");
                     WriteLine("Example:\n");
-                    WriteLine("fileeye \"C:\\my files\" \"return 1\"  \".cs,.js\"");
+                    WriteLine("orvina.exe \"C:\\my files\" \"return 1\"  \".cs,.js\"");
                     break;
 
                 case AppState.Run:
