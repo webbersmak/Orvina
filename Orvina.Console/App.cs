@@ -153,11 +153,6 @@ namespace Orvina.Console
                 {
                     WriteLine("Open File? Enter Id or 'q' to quit: ");
 
-                    while (!System.Console.KeyAvailable)
-                    {
-                        Thread.Sleep(100);
-                    }
-
                     var key = System.Console.ReadKey();
                     attemptQuit = key.Key == ConsoleKey.Q;
 
