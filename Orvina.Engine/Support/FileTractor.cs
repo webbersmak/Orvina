@@ -4,8 +4,8 @@ namespace Orvina.Engine
 {
     internal sealed class FileTractor : IDisposable
     {
-        private readonly Dictionary<int, AsyncContext> asyncReads = new(32);
-        private readonly SimpleQueue<CompleteFile> dataQ = new(32);
+        private readonly Dictionary<int, AsyncContext> asyncReads = new();
+        private readonly SimpleQueue<CompleteFile> dataQ = new();
 
         private readonly ManualResetEventSlim manualReset = new();
         private int callId;

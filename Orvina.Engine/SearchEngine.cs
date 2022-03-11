@@ -1,15 +1,10 @@
 ﻿using Orvina.Engine.Support;
+using System.IO.Enumeration;
 
 namespace Orvina.Engine
 {
     public class SearchEngine : IDisposable
     {
-        private static readonly EnumerationOptions DirOptions = new()
-        {
-            BufferSize = 4096 * 2,
-            AttributesToSkip = FileAttributes.System
-        };
-
         private FileTractor fileTractor = new();
         private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
@@ -178,28 +173,15 @@ namespace Orvina.Engine
                     MultiSearchInner(path);
                     LockHelper.RunLock(ref runnerListLock, () =>
                     {
-                        //Console.WriteLine($"{totalQueueCount} totalQueueCount--");
                         totalQueueCount--;
                     });
                 }
                 else
                 {
-                    processing = LockHelper.RunLock(ref runnerListLock, () => {
+                    processing = LockHelper.RunLock(ref runnerListLock, () =>
+                    {
                         return totalQueueCount > 0;
                     });
-
-                    //processing = LockHelper.RunLock(ref endLock, () =>
-                    //{
-                    //    foreach (var empty in emptyRunners)
-                    //    {
-                    //        if (!empty)
-                    //        {
-                    //            return true; //if processing get out 
-                    //        }
-                    //    }
-
-                    //    return false;
-                    //});
                 }
             }
 
@@ -238,6 +220,12 @@ namespace Orvina.Engine
         private SpinLock runnerListLock = new();
         private int totalQueueCount;
 
+        private struct FileEntry
+        {
+            public bool IsDirectory;
+            public string Path;
+        }
+
         private void MultiSearchInner(string path)
         {
             if (raiseProgress)
@@ -245,26 +233,33 @@ namespace Orvina.Engine
                 HandleEvent(new OnProgressEvent(path, false));
             }
 
+            int i;
+            var pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }).ToArray();
+
             try
             {
-                foreach (var entry in Directory.EnumerateDirectories(path, "*", DirOptions))
+                for (i = 0; i < pathEntries.Length; i++)
                 {
-                    LockHelper.RunLock(ref runnerListLock, () =>
-                    {
-                        //Console.WriteLine($"{totalQueueCount} totalQueueCount++");
-                        totalQueueCount++;
-                    });
+                    var entry = pathEntries[i];
 
-                    int targetQueueId = LockHelper.RunLock(ref runnerQueueIdLock, () =>
+                    if (entry.IsDirectory)
                     {
-                        runnerQueueId += runnerQueueId + 1 == runnerList.Count ? -runnerQueueId : 1;
-                        return runnerQueueId;
-                    });
+                        LockHelper.RunLock(ref runnerListLock, () =>
+                        {
+                            totalQueueCount++;
+                        });
 
-                    var target = runnerList[targetQueueId];
-                    lock (target) //lock my list
-                    {
-                        target.Enqueue(entry);
+                        int targetQueueId = LockHelper.RunLock(ref runnerQueueIdLock, () =>
+                        {
+                            runnerQueueId += runnerQueueId + 1 == runnerList.Count ? -runnerQueueId : 1;
+                            return runnerQueueId;
+                        });
+
+                        var target = runnerList[targetQueueId];
+                        lock (target) //lock my list
+                        {
+                            target.Enqueue(entry.Path);
+                        }
                     }
                 }
             }
@@ -280,21 +275,26 @@ namespace Orvina.Engine
 
             try
             {
-                foreach (var fileType in fileExtensions)
+                for (var k = 0; k < fileExtensions.Length; k++)
                 {
-                    foreach (var file in Directory.EnumerateFiles(path, $"*{fileType}", DirOptions))
+                    for (i = 0; i < pathEntries.Length; i++)
                     {
-                        if (fileTractor.TryEnqueue(file))
-                        {
-                            LockHelper.RunLock(ref tractorLock, () =>
-                            {
-                                filesEnroute++;
-                            });
-                        }
+                        var entry = pathEntries[i];
 
-                        if (raiseProgress)
+                        if (!entry.IsDirectory && entry.Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
                         {
-                            HandleEvent(new OnProgressEvent(Path.GetFileName(file), true));
+                            if (fileTractor.TryEnqueue(entry.Path))
+                            {
+                                LockHelper.RunLock(ref tractorLock, () =>
+                                {
+                                    filesEnroute++;
+                                });
+                            }
+
+                            if (raiseProgress)
+                            {
+                                HandleEvent(new OnProgressEvent(Path.GetFileName(entry.Path), true));
+                            }
                         }
                     }
                 }

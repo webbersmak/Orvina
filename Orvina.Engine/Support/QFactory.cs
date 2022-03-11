@@ -6,8 +6,8 @@
     /// <typeparam name="T"></typeparam>
     internal static class QFactory<T>
     {
-        private static readonly Dictionary<int, SimpleQueue<T>> ActiveQueues = new(32);
-        private static readonly SimpleQueue<SimpleQueue<T>> ClosedQueues = new(32);
+        private static readonly Dictionary<int, SimpleQueue<T>> ActiveQueues = new();
+        private static readonly SimpleQueue<SimpleQueue<T>> ClosedQueues = new();
         private static SpinLock ActiveQueueLock = new();
         private static int maxId;
 
@@ -35,7 +35,7 @@
         {
             return Lock(() =>
             {
-                ActiveQueues.Add(maxId, ClosedQueues.TryDequeue(out SimpleQueue<T> old) ? old : new SimpleQueue<T>(32));
+                ActiveQueues.Add(maxId, ClosedQueues.TryDequeue(out SimpleQueue<T> old) ? old : new SimpleQueue<T>());
                 return maxId++;
             });
 
