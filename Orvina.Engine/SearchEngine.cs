@@ -69,12 +69,12 @@ namespace Orvina.Engine
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
         {
-            if (tasks.Any(t => !t.IsCompletedSuccessfully))
+            if (tasks.Any() && tasks.Any(t => !t.IsCompletedSuccessfully))
             {
                 //looks like the search is already running...
                 return;
             }
-            else
+            else if (tasks.Any())
             {
                 //clean up from previous run
                 Dispose();
@@ -96,7 +96,10 @@ namespace Orvina.Engine
             //search threads
             var factory = new TaskFactory();
             var threadTotal = Environment.ProcessorCount;
-
+            for (var i = 0; i < threadTotal; i++)
+            {
+                runnerList.Add(i, new SimpleQueue<string>());
+            }
             runnerList[0].Enqueue(searchPath);
             totalQueueCount = 1;
 
