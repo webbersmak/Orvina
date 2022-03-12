@@ -71,6 +71,18 @@ namespace Orvina.Engine
         /// <param name="searchPath">such as @"C:\my files"</param>
         /// <param name="includeSubirectories">true or false</param>
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
+        /// <param name="fileExtensions">such as ".cs", ".txt"</param>
+        public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
+        {
+            Start(searchPath, includeSubirectories, searchText, false, fileExtensions);
+        }
+
+        /// <summary>
+        /// Call this method to start the search. Or call it to restart the search after the OnSearchComplete event is raised.
+        /// </summary>
+        /// <param name="searchPath">such as @"C:\my files"</param>
+        /// <param name="includeSubirectories">true or false</param>
+        /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
         /// <param name="includeHidden">true or false</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, params string[] fileExtensions)

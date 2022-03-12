@@ -31,7 +31,7 @@ while (true)
             Console.WriteLine("finished");
         };
 
-        orveng.Start(@"C:\users", true, "orvina", includeHidden: false, ".cs");
+        orveng.Start(@"C:\users", true, "orvina", ".cs");
 
         while (running)
         {
