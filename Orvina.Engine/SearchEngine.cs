@@ -5,6 +5,11 @@ namespace Orvina.Engine
 {
     public class SearchEngine : IDisposable
     {
+        private static readonly EnumerationOptions eo = new()
+        {
+            BufferSize = 1024
+        };
+
         private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
         private string[] fileExtensions;
@@ -67,7 +72,7 @@ namespace Orvina.Engine
         /// <param name="includeSubirectories">true or false</param>
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
-        public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
+        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, params string[] fileExtensions)
         {
             if (tasks.Any() && tasks.Any(t => !t.IsCompletedSuccessfully))
             {
@@ -79,6 +84,8 @@ namespace Orvina.Engine
                 //clean up from previous run
                 Dispose();
             }
+
+            eo.AttributesToSkip = includeHidden ? FileAttributes.System : (FileAttributes.System | FileAttributes.Hidden);
 
             fileTractor = new();
 
@@ -215,7 +222,7 @@ namespace Orvina.Engine
             }
 
             int i;
-            var pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }).ToArray();
+            var pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }, eo).ToArray();
 
             try
             {
