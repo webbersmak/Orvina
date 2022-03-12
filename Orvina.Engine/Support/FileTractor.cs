@@ -4,11 +4,10 @@ namespace Orvina.Engine
 {
     internal sealed class FileTractor : IDisposable
     {
-        private readonly Dictionary<int, AsyncContext> asyncReads = new();
+        private readonly SimpleDictionary<AsyncContext> asyncReads = new();
         private readonly SimpleQueue<CompleteFile> dataQ = new();
 
         private readonly ManualResetEventSlim manualReset = new();
-        private int callId;
         private SpinLock dataQLock = new();
 
         public void Dispose()
@@ -30,8 +29,17 @@ namespace Orvina.Engine
 
                 lock (asyncReads)
                 {
-                    asyncReads.Add(++callId, context);
-                    fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
+                    var callId = asyncReads.Add(context);
+                    try
+                    {
+                        fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
+                    }
+                    catch
+                    {
+                        asyncReads.Remove(callId);
+                        fs.Dispose();
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)

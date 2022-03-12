@@ -127,20 +127,20 @@ namespace Orvina.Engine
                 {
                     case Event.EventTypes.OnProgress:
                         var pe = (OnProgressEvent)e;
-                        OnProgress?.Invoke(pe.File, pe.IsFile);
+                        OnProgress.Invoke(pe.File, pe.IsFile);
                         break;
 
                     case Event.EventTypes.OnFileFound:
                         var fileEvent = (OnFileFoundEvent)e;
-                        OnFileFound?.Invoke(fileEvent.File, fileEvent.Lines);
+                        OnFileFound.Invoke(fileEvent.File, fileEvent.Lines);
                         break;
 
                     case Event.EventTypes.OnSearchComplete:
-                        OnSearchComplete?.Invoke();
+                        OnSearchComplete.Invoke();
                         break;
 
                     case Event.EventTypes.OnError:
-                        OnError?.Invoke(((OnErrorEvent)e).Error);
+                        OnError.Invoke(((OnErrorEvent)e).Error);
                         break;
                 }
             }
