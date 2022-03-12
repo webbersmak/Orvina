@@ -12,8 +12,16 @@
     <PackageTags>search;.NET6;grep;text;query;index;</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReleaseNotes>Micro-optimizations and bug fixes</PackageReleaseNotes>
-    <Version>1.0.2</Version>
+    <PackageReleaseNotes>Massive performance increases over previous versions of Orvina. Bug fixes.</PackageReleaseNotes>
+    <Version>1.5.0</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>
