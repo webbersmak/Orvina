@@ -38,18 +38,20 @@ This is a high performance text search application written in C#. Speed, ease of
     
 # Under the hood
 
-Orvina.Engine is multithreaded to build the result list as quickly as possible on your machine. While no amount of multithreading can fix a slow disk (I/O reads), care was taken to allow the disk to be as efficient as possible. This is achieved with clever use of Monitor.Wait & Monitor.Pulse.
+Orvina.Engine is multithreaded to build the result list as quickly as possible on your machine. While no amount of multithreading can fix a slow disk (I/O reads), care was taken to allow the disk to be as efficient as possible. This is achieved with a clever queuing and locking model that allows files streaming off of the disk to be promptly scanned.
 
-### Directory Thread 
+### Directory Thread
 
-This is the first thread to run and there is only 1 thread of this type. It recursively scans the root folder and its subfolders. While scanning the folder tree, it also tracks a shared list of files that have the desire file extension(s). Such as .cs or .js.
+These are the first batch of threads that run and use the latest file enumerators available in .NET 6 that call directly into NTDLL.DLL. They recursively scan the root folder and its subfolders. While scanning the folder tree, it also tracks an shared list of files that have the desire file extension(s). Such as .cs or .js.
 
-### Search Threads
+### File Tractor
 
-On a modern machine with many CPU cores, there can be many of these threads. Threads of this type will monitor the shared list, select a file, and attempt a full read of that file. The reads are synchronized such that only 1 thread may read a file at a time. While that sounds like "anti performance", it allows the disk, which is almost always the bottleneck, to focus one job. Once the file contents are in memory, the disk is released, and the Search Thread can run full speed looking for the search string.
+The file tractor leverages Asynchronous File I/O built into the OS. It allows file streaming from the disk to be stored as raw bytes in a memory queue. Any available threads will pull from this queue to scan the file for matching "search text".
 
-In the event that the file is too large to be read into memory, the Search Thread will fall back to a line by line read of the file.
+### Text Search Thread
+
+Threads of this type will read the in-memory file byte stream. They read from the File Tractor queue and convert the byte stream to UTF8 text. The reads are synchronized such that only 1 thread may read a file at a time. 
 
 ### Notfification Thread
 
-There is 1 thread of this type. The Directory and Search threads load events into a event queue. The events include File Found, Error, Search Complete. The Notification Thread consumes this queue and raises events up to the hosting application. This approach frees the Search Threads from blocking while the hosting application processes the events.
+The notification thread no exists but it originally streamed output to the Console. The "-progress" flag can be used to view the search action. It was decided that having a dedicated thread for Console output was wasted CPU energy that would be better used in the search effort. 
