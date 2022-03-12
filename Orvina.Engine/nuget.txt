@@ -1,4 +1,4 @@
 ﻿run in package manager console:
 
-dotnet nuget push .\Orvina.Engine\bin\Release\Orvina.Engine.1.0.2.nupkg --api-key XYZ --source https://api.nuget.org/v3/index.json
+dotnet nuget push .\Orvina.Engine\bin\Release\Orvina.Engine.1.5.0.nupkg --api-key XYZ --source https://api.nuget.org/v3/index.json
 
