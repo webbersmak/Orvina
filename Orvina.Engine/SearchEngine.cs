@@ -17,6 +17,7 @@ namespace Orvina.Engine
         private FileTractor fileTractor;
         private int finishedTasks;
 
+        private bool includeSubdirectories;
         private bool raiseErrors;
         private bool raiseProgress;
 
@@ -25,7 +26,6 @@ namespace Orvina.Engine
         private SpinLock runnerQueueIdLock = new();
         private string searchText;
         private bool stop;
-
         private int totalQueueCount;
         private SpinLock tractorLock = new();
 
@@ -71,6 +71,7 @@ namespace Orvina.Engine
         /// <param name="searchPath">such as @"C:\my files"</param>
         /// <param name="includeSubirectories">true or false</param>
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
+        /// <param name="includeHidden">true or false</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, params string[] fileExtensions)
         {
@@ -85,6 +86,7 @@ namespace Orvina.Engine
                 Dispose();
             }
 
+            includeSubdirectories = includeSubirectories;
             eo.AttributesToSkip = includeHidden ? FileAttributes.System : (FileAttributes.System | FileAttributes.Hidden);
 
             fileTractor = new();
@@ -226,7 +228,7 @@ namespace Orvina.Engine
 
             try
             {
-                for (i = 0; i < pathEntries.Length; i++)
+                for (i = 0; i < pathEntries.Length && includeSubdirectories; i++)
                 {
                     var entry = pathEntries[i];
 
