@@ -9,7 +9,7 @@
         private static readonly SimpleDictionary<SimpleQueue<T>> ActiveQueues = new();
         private static readonly SimpleQueue<SimpleQueue<T>> ClosedQueues = new();
         private static SpinLock ActiveQueueLock = new();
-        private static int maxId;
+
 
         public static bool Any(int id)
         {
