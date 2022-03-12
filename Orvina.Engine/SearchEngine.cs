@@ -5,24 +5,23 @@ namespace Orvina.Engine
 {
     public class SearchEngine : IDisposable
     {
-        private FileTractor fileTractor = new();
         private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
-        private bool[] emptyRunners;
-        private SpinLock endLock = new();
         private string[] fileExtensions;
-
         private int filesEnroute;
+        private FileTractor fileTractor;
         private int finishedTasks;
 
         private bool raiseErrors;
         private bool raiseProgress;
 
-        private SpinLock runnerQueueIdLock = new();
+        private SpinLock runnerListLock = new();
         private int runnerQueueId;
+        private SpinLock runnerQueueIdLock = new();
         private string searchText;
         private bool stop;
 
+        private int totalQueueCount;
         private SpinLock tractorLock = new();
 
         /// <summary>
@@ -97,13 +96,6 @@ namespace Orvina.Engine
             //search threads
             var factory = new TaskFactory();
             var threadTotal = Environment.ProcessorCount;
-            emptyRunners = new bool[threadTotal];
-
-            for (var runnerId = 0; runnerId < threadTotal; runnerId++)
-            {
-                emptyRunners[runnerId] = false;
-                runnerList.Add(runnerId, new SimpleQueue<string>());
-            }
 
             runnerList[0].Enqueue(searchPath);
             totalQueueCount = 1;
@@ -162,10 +154,6 @@ namespace Orvina.Engine
                 lock (target) //lock my list
                 {
                     gotItem = target.TryDequeue(out path);
-                    LockHelper.RunLock(ref endLock, () =>
-                    {
-                        emptyRunners[runnerId] = !gotItem;
-                    });
                 }
 
                 if (gotItem)
@@ -214,16 +202,6 @@ namespace Orvina.Engine
             }
 
             TryNotifySearchEnded();
-        }
-
-
-        private SpinLock runnerListLock = new();
-        private int totalQueueCount;
-
-        private struct FileEntry
-        {
-            public bool IsDirectory;
-            public string Path;
         }
 
         private void MultiSearchInner(string path)
@@ -367,6 +345,12 @@ namespace Orvina.Engine
             }
 
             QFactory<string>.ReturnQ(matchingLines);
+        }
+
+        private struct FileEntry
+        {
+            public bool IsDirectory;
+            public string Path;
         }
     }
 }
