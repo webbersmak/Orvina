@@ -3,9 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32210.238
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orvina.Console", "Orvina.Console\Orvina.Console.csproj", "{3767AC85-7BBD-4688-9331-0C24FCFD69F1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orvina.Console", "Orvina.Console\Orvina.Console.csproj", "{3767AC85-7BBD-4688-9331-0C24FCFD69F1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orvina.Engine", "Orvina.Engine\Orvina.Engine.csproj", "{B3F4A000-B020-40BE-903D-E5F583AC2D0D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Orvina.Engine", "Orvina.Engine\Orvina.Engine.csproj", "{B3F4A000-B020-40BE-903D-E5F583AC2D0D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{BA8BC5B4-9192-434D-A07E-F23FAA09D1B1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test.App", "Test.App\Test.App.csproj", "{3FC7CA2A-80B0-407A-9F24-3806ADEE7885}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,9 +25,16 @@ Global
 		{B3F4A000-B020-40BE-903D-E5F583AC2D0D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B3F4A000-B020-40BE-903D-E5F583AC2D0D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B3F4A000-B020-40BE-903D-E5F583AC2D0D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3FC7CA2A-80B0-407A-9F24-3806ADEE7885}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3FC7CA2A-80B0-407A-9F24-3806ADEE7885}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3FC7CA2A-80B0-407A-9F24-3806ADEE7885}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3FC7CA2A-80B0-407A-9F24-3806ADEE7885}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{3FC7CA2A-80B0-407A-9F24-3806ADEE7885} = {BA8BC5B4-9192-434D-A07E-F23FAA09D1B1}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {167A7C1B-BFC6-431A-A018-4958DFB572C4}
