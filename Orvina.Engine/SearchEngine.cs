@@ -342,7 +342,7 @@ namespace Orvina.Engine
                         lineNum++;
                     }
 
-                    QFactory<string>.Enqueue(matchingLines, lineNum > 1 ? $"({lineNum}) {extractedLine}" : $"(??) {extractedLine}");
+                    QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {extractedLine}");
 
                     searchTextIdx = lineEndIdx;
                 }
