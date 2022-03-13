@@ -65,18 +65,16 @@ namespace Orvina.Console
             }
         }
 
-        private static string ConsoleTruncate(string text)
+        private static ReadOnlySpan<char> ConsoleTruncate(ReadOnlySpan<char> text)
         {
             var width = System.Console.WindowWidth - 1;
-            return text.Length > width ? text.Substring(0, width) : text;
+            return text.Length > width ? text.Slice(0, width) : text;
         }
 
-        private static void PrintWipe(string text)
+        private static void PrintWipe(ReadOnlySpan<char> text)
         {
-            text = ConsoleTruncate(text);
             SetColor(ConsoleColor.Green);
-
-            System.Console.Write($"\r{text}".PadRight(System.Console.BufferWidth));
+            System.Console.Write($"\r{ConsoleTruncate(text)}".PadRight(System.Console.BufferWidth));
 
             //System.Console.Write($"\r{consoleClear}");
             //System.Console.Write($"\r{text}");
@@ -85,33 +83,6 @@ namespace Orvina.Console
         private static void SetColor(ConsoleColor color)
         {
             System.Console.ForegroundColor = color;
-        }
-
-        private static List<string> SplitAndKeepDelimiter(string input, string delimiter)
-        {
-            var parts = new List<string>();
-
-            int startIdx;
-            while ((startIdx = input.IndexOf(delimiter, StringComparison.OrdinalIgnoreCase)) >= 0)
-            {
-                if (startIdx > 0)
-                {
-                    parts.Add(input.Substring(0, startIdx));
-                    input = input.Remove(0, startIdx);
-                }
-                else //if (startIdx == 0)
-                {
-                    parts.Add(input.Substring(0, delimiter.Length));
-                    input = input.Remove(0, delimiter.Length);
-                }
-            }
-
-            if (input.Length > 0) //any leftover
-            {
-                parts.Add(input);
-            }
-
-            return parts;
         }
 
         private static void WriteLine(string msg)
@@ -260,12 +231,15 @@ namespace Orvina.Console
 
             PrintWipe("");
 
-            var fileParts = SplitAndKeepDelimiter(file, @"\");
+            var fileSpan = file.AsSpan();
+            var lastSlash = fileSpan.LastIndexOf('\\') + 1;
+            var prefix = fileSpan.Slice(0, lastSlash);
+            var fileName = fileSpan.Slice(lastSlash, fileSpan.Length - lastSlash).ToString();
 
             SetColor(ConsoleColor.Green);
-            System.Console.Write($"\nFound: " + string.Join("", fileParts.Select(p => p == fileParts.Last() ? "" : p)));
+            System.Console.Write($"\nFound: {prefix}");
             SetColor(ConsoleColor.Red);
-            System.Console.Write(fileParts.Last());
+            System.Console.Write(fileName);
 
             SetColor(ConsoleColor.DarkGray);
             WriteLine($"({fileId})");
@@ -273,15 +247,38 @@ namespace Orvina.Console
             fileMap.Add(fileId, file);
 
             SetColor(ConsoleColor.Green);
-            foreach (string line in matchingLines.Select(line => ConsoleTruncate(line)))
+            foreach (string line in matchingLines)
             {
-                var parts = SplitAndKeepDelimiter(line, searchText);
-                foreach (var part in parts)
+                var lineSpan = ConsoleTruncate(line);
+
+                int nextIdx;
+                while ((nextIdx = lineSpan.IndexOf(searchText, StringComparison.OrdinalIgnoreCase)) >= 0)
                 {
-                    SetColor(part.Equals(searchText, StringComparison.OrdinalIgnoreCase)
+                    ReadOnlySpan<char> slice;
+
+                    if (nextIdx > 0)//
+                    {
+                        slice = lineSpan.Slice(0, nextIdx);
+                        lineSpan = lineSpan.Slice(nextIdx, lineSpan.Length - 1 - nextIdx);
+                    }
+                    else//==0
+                    {
+                        slice = lineSpan.Slice(0, searchText.Length);
+                        lineSpan = lineSpan.Slice(nextIdx + searchText.Length, lineSpan.Length - (nextIdx + searchText.Length));
+                    }
+
+                    SetColor(slice.Equals(searchText, StringComparison.OrdinalIgnoreCase)
                         ? ConsoleColor.DarkCyan
                         : ConsoleColor.Yellow);
-                    System.Console.Write(ConsoleTruncate(part));
+                    System.Console.Write(slice.ToString());
+                }
+
+                if (lineSpan.Length > 0)
+                {
+                    SetColor(lineSpan.Equals(searchText, StringComparison.OrdinalIgnoreCase)
+                        ? ConsoleColor.DarkCyan
+                        : ConsoleColor.Yellow);
+                    System.Console.Write(lineSpan.ToString());
                 }
 
                 WriteLine("");
@@ -301,6 +298,7 @@ namespace Orvina.Console
             }
             PrintWipe(filePath);
         }
+
         private void Search_OnSearchComplete()
         {
             PrintWipe("");
