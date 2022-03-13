@@ -336,6 +336,7 @@ namespace Orvina.Engine
                     int newLineIdx;//idx of \n character
                     int startIdx = 0;
                     var lineNum = 1;
+
                     while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < lineStartIdx && !stop)
                     {
                         startIdx = newLineIdx + 1;
