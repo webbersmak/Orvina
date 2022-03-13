@@ -2,7 +2,9 @@
 
 ## Introduction
 
-This is a high performance text search application written in C#. Speed, ease of use, and robustness were all accounted for during the development of Orvina. This repository contains 2 projects: 
+This is a high performance text search utility written in C#/.NET 6. Speed, ease of use, and robustness were all accounted for in the development of Orvina. The current version of Orvina does not support Regular Expressions and by default, only searches for matching text strings (case-insensitive). 
+
+This repository contains 2 projects: 
 
 1. **Orvina.Console**
     - Console Application
