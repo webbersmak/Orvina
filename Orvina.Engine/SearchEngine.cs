@@ -236,10 +236,12 @@ namespace Orvina.Engine
             }
 
             int i;
-            var pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }, eo).ToArray();
+            FileEntry[] pathEntries;
 
             try
             {
+                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }, eo).ToArray();
+
                 for (i = 0; i < pathEntries.Length && includeSubdirectories; i++)
                 {
                     var entry = pathEntries[i];
