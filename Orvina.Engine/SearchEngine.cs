@@ -323,6 +323,10 @@ namespace Orvina.Engine
                 //most cases the file won't contain the searchText at all
                 var searchTextIdx = 0;
                 var endFileIdx = all.Length - 1;
+
+                var startIdx = 0;
+                var lineNum = 1;
+
                 while (searchTextIdx < endFileIdx && (searchTextIdx = all.IndexOf(searchText, searchTextIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && !stop)
                 {
                     var lineStartIdx = all.LastIndexOf("\n", searchTextIdx);
@@ -334,9 +338,6 @@ namespace Orvina.Engine
                     var extractedLine = all.AsSpan().Slice(lineStartIdx, lineEndIdx - lineStartIdx);
 
                     int newLineIdx;//idx of \n character
-                    int startIdx = 0;
-                    var lineNum = 1;
-
                     while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < lineStartIdx && !stop)
                     {
                         startIdx = newLineIdx + 1;
@@ -344,7 +345,6 @@ namespace Orvina.Engine
                     }
 
                     QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {extractedLine}");
-
                     searchTextIdx = lineEndIdx;
                 }
             }
