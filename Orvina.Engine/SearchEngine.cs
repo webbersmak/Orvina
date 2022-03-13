@@ -331,7 +331,7 @@ namespace Orvina.Engine
                     lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : searchTextIdx;
                     lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextIdx + searchText.Length;
 
-                    var extractedLine = all.Substring(lineStartIdx, lineEndIdx - lineStartIdx);
+                    var extractedLine = all.AsSpan().Slice(lineStartIdx, lineEndIdx - lineStartIdx);
 
                     int newLineIdx;//idx of \n character
                     int startIdx = 0;
