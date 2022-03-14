@@ -259,7 +259,7 @@ namespace Orvina.Console
                     if (nextIdx > 0)//
                     {
                         slice = lineSpan.Slice(0, nextIdx);
-                        lineSpan = lineSpan.Slice(nextIdx, lineSpan.Length - 1 - nextIdx);
+                        lineSpan = lineSpan.Slice(nextIdx, lineSpan.Length - nextIdx);
                     }
                     else//==0
                     {

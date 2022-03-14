@@ -24,7 +24,10 @@ namespace Orvina.Engine
         private SpinLock runnerListLock = new();
         private int runnerQueueId;
         private SpinLock runnerQueueIdLock = new();
-        private string searchText;
+
+        private byte[] searchUpper;
+        private byte[] searchLower; 
+
         private bool stop;
         private int totalQueueCount;
         private SpinLock tractorLock = new();
@@ -103,7 +106,8 @@ namespace Orvina.Engine
 
             fileTractor = new();
 
-            this.searchText = searchText;
+            searchUpper = System.Text.Encoding.UTF8.GetBytes(searchText.ToUpper());
+            searchLower = System.Text.Encoding.UTF8.GetBytes(searchText.ToLower());
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
@@ -315,36 +319,26 @@ namespace Orvina.Engine
         private void ScanFile(FileTractor.CompleteFile file)
         {
             var matchingLines = QFactory<string>.GetQ();
+            var all = file.data;
 
             try
             {
-                var all = System.Text.Encoding.UTF8.GetString(file.data);
-
                 //most cases the file won't contain the searchText at all
                 var searchTextIdx = 0;
                 var endFileIdx = all.Length - 1;
 
-                var startIdx = 0;
-                var lineNum = 1;
-
-                while (searchTextIdx < endFileIdx && (searchTextIdx = all.IndexOf(searchText, searchTextIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && !stop)
+                //found our word in the text
+                while (searchTextIdx < endFileIdx && (searchTextIdx = TextBytes.IndexOf(all, searchUpper, searchLower, searchTextIdx)) >= 0 && !stop)
                 {
-                    var lineStartIdx = all.LastIndexOf("\n", searchTextIdx);
-                    var lineEndIdx = all.IndexOf("\n", searchTextIdx + searchText.Length);
+                    var lineStartIdx = TextBytes.MarkerLastIndexOf(all, TextBytes.newLine, searchTextIdx);
+                    var lineEndIdx = TextBytes.MarkerIndexOf(all, TextBytes.newLine, searchTextIdx + searchUpper.Length);
 
                     lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : searchTextIdx;
-                    lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextIdx + searchText.Length;
+                    lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextIdx + searchUpper.Length;
 
-                    var extractedLine = all.AsSpan().Slice(lineStartIdx, lineEndIdx - lineStartIdx);
+                    var extractedLine = System.Text.Encoding.UTF8.GetString(all, lineStartIdx, lineEndIdx - lineStartIdx);
 
-                    int newLineIdx;//idx of \n character
-                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < lineStartIdx && !stop)
-                    {
-                        startIdx = newLineIdx + 1;
-                        lineNum++;
-                    }
-
-                    QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {extractedLine}");
+                    QFactory<string>.Enqueue(matchingLines, $"({TextBytes.CountLines(all, lineStartIdx)}) {extractedLine}");
                     searchTextIdx = lineEndIdx;
                 }
             }
@@ -379,5 +373,6 @@ namespace Orvina.Engine
             public bool IsDirectory;
             public string Path;
         }
+
     }
 }
