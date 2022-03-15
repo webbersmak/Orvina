@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using static Orvina.Engine.SearchEngine;
 
+[assembly: InternalsVisibleTo("UnitTests")]
 namespace Orvina.Engine.Support
 {
     internal class FileScanner
@@ -28,7 +30,7 @@ namespace Orvina.Engine.Support
                 var lineEndIdx = TextBytes.RightNewLineIndex(data, searchTextLastIdx);
 
                 lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : searchTextIdx;
-                lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextLastIdx;
+                lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : searchTextLastIdx;
 
                 var lr = new LineResult()
                 {
