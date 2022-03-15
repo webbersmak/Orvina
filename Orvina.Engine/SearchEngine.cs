@@ -10,6 +10,7 @@ namespace Orvina.Engine
             BufferSize = 1024
         };
 
+        private readonly FileScanner fileScanner = new();
         private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
         private string[] fileExtensions;
@@ -24,10 +25,6 @@ namespace Orvina.Engine
         private SpinLock runnerListLock = new();
         private int runnerQueueId;
         private SpinLock runnerQueueIdLock = new();
-
-        private byte[] searchUpper;
-        private byte[] searchLower; 
-
         private bool stop;
         private int totalQueueCount;
         private SpinLock tractorLock = new();
@@ -40,7 +37,7 @@ namespace Orvina.Engine
         /// <summary>
         /// returns the file and the lines in the file that match the search
         /// </summary>
-        public event Action<string, string[]> OnFileFound;
+        public event Action<string, List<LineResult>> OnFileFound;
 
         /// <summary>
         /// returns the currently scanned file
@@ -101,13 +98,15 @@ namespace Orvina.Engine
                 Dispose();
             }
 
+            this.fileScanner.stop = stop = false;
+
             includeSubdirectories = includeSubirectories;
             eo.AttributesToSkip = includeHidden ? FileAttributes.System : (FileAttributes.System | FileAttributes.Hidden);
 
             fileTractor = new();
 
-            searchUpper = System.Text.Encoding.UTF8.GetBytes(searchText.ToUpper());
-            searchLower = System.Text.Encoding.UTF8.GetBytes(searchText.ToLower());
+            this.fileScanner.searchText = new(searchText);
+
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
@@ -140,8 +139,7 @@ namespace Orvina.Engine
         /// </summary>
         public void Stop()
         {
-            stop = true; //let threads run to completion
-            //HandleEvent(new OnSearchCompleteEvent());
+            this.fileScanner.stop = stop = true; //let threads run to completion
         }
 
         private void HandleEvent(Event e)
@@ -248,9 +246,7 @@ namespace Orvina.Engine
 
                 for (i = 0; i < pathEntries.Length && includeSubdirectories; i++)
                 {
-                    var entry = pathEntries[i];
-
-                    if (entry.IsDirectory)
+                    if (pathEntries[i].IsDirectory)
                     {
                         LockHelper.RunLock(ref runnerListLock, () =>
                         {
@@ -266,7 +262,7 @@ namespace Orvina.Engine
                         var target = runnerList[targetQueueId];
                         lock (target) //lock my list
                         {
-                            target.Enqueue(entry.Path);
+                            target.Enqueue(pathEntries[i].Path);
                         }
                     }
                 }
@@ -287,11 +283,9 @@ namespace Orvina.Engine
                 {
                     for (i = 0; i < pathEntries.Length; i++)
                     {
-                        var entry = pathEntries[i];
-
-                        if (!entry.IsDirectory && entry.Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
+                        if (!pathEntries[i].IsDirectory && pathEntries[i].Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
                         {
-                            if (fileTractor.TryEnqueue(entry.Path))
+                            if (fileTractor.TryEnqueue(pathEntries[i].Path))
                             {
                                 LockHelper.RunLock(ref tractorLock, () =>
                                 {
@@ -301,7 +295,7 @@ namespace Orvina.Engine
 
                             if (raiseProgress)
                             {
-                                HandleEvent(new OnProgressEvent(Path.GetFileName(entry.Path), true));
+                                HandleEvent(new OnProgressEvent(Path.GetFileName(pathEntries[i].Path), true));
                             }
                         }
                     }
@@ -318,29 +312,11 @@ namespace Orvina.Engine
 
         private void ScanFile(FileTractor.CompleteFile file)
         {
-            var matchingLines = QFactory<string>.GetQ();
-            var all = file.data;
+            List<LineResult> matchingLines;
 
             try
             {
-                //most cases the file won't contain the searchText at all
-                var searchTextIdx = 0;
-                var endFileIdx = all.Length - 1;
-
-                //found our word in the text
-                while (searchTextIdx < endFileIdx && (searchTextIdx = TextBytes.IndexOf(all, searchUpper, searchLower, searchTextIdx)) >= 0 && !stop)
-                {
-                    var lineStartIdx = TextBytes.MarkerLastIndexOf(all, TextBytes.newLine, searchTextIdx);
-                    var lineEndIdx = TextBytes.MarkerIndexOf(all, TextBytes.newLine, searchTextIdx + searchUpper.Length);
-
-                    lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : searchTextIdx;
-                    lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextIdx + searchUpper.Length;
-
-                    var extractedLine = System.Text.Encoding.UTF8.GetString(all, lineStartIdx, lineEndIdx - lineStartIdx);
-
-                    QFactory<string>.Enqueue(matchingLines, $"({TextBytes.CountLines(all, lineStartIdx)}) {extractedLine}");
-                    searchTextIdx = lineEndIdx;
-                }
+                matchingLines = fileScanner.ScanFile(file.data);
             }
             catch (Exception ex)
             {
@@ -348,24 +324,36 @@ namespace Orvina.Engine
                 {
                     HandleEvent(new OnErrorEvent(ex.ToString()));
                 }
+                return;
             }
 
-            if (QFactory<string>.Any(matchingLines))
+            if (matchingLines.Count > 0)
             {
-                var lines = new string[QFactory<string>.Count(matchingLines)];
-                var i = 0;
-                while (QFactory<string>.TryDequeue(matchingLines, out string value))
-                {
-                    lines[i++] = value;
-
-                    if (stop)
-                        break;
-                }
-
-                HandleEvent(new OnFileFoundEvent(file.fileName, lines));
+                HandleEvent(new OnFileFoundEvent(file.fileName, matchingLines));
             }
+        }
 
-            QFactory<string>.ReturnQ(matchingLines);
+        public struct LineResult
+        {
+            /// <summary>
+            /// the line number
+            /// </summary>
+            public int LineNumber;
+
+            /// <summary>
+            /// a text line that contains the matching text
+            /// </summary>
+            public string LineText;
+
+            /// <summary>
+            /// where in the line the match ends
+            /// </summary>
+            public int MatchEndIdx;
+
+            /// <summary>
+            /// where in the line the match starts
+            /// </summary>
+            public int MatchStartIdx;
         }
 
         private struct FileEntry
@@ -373,6 +361,5 @@ namespace Orvina.Engine
             public bool IsDirectory;
             public string Path;
         }
-
     }
 }

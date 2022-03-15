@@ -34,7 +34,19 @@
 
         public void Remove(int key)
         {
-            nodes[key] = default(T);
+            nodes[key] = default;
+        }
+
+        /// <summary>
+        /// aka remove read
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public T RemoveGet(int key)
+        {
+            var temp = nodes[key];
+            nodes[key] = default;
+            return temp;
         }
     }
 }

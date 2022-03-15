@@ -75,9 +75,6 @@ namespace Orvina.Console
         {
             SetColor(ConsoleColor.Green);
             System.Console.Write($"\r{ConsoleTruncate(text)}".PadRight(System.Console.BufferWidth));
-
-            //System.Console.Write($"\r{consoleClear}");
-            //System.Console.Write($"\r{text}");
         }
 
         private static void SetColor(ConsoleColor color)
@@ -225,10 +222,48 @@ namespace Orvina.Console
             }
         }
 
-        private void Search_OnFileFound(string file, string[] matchingLines)
+        private void Search_OnFileFound(string file, List<SearchEngine.LineResult> matchingLines)
         {
-            fileId++;
+            fileMap.Add(++fileId, file);
+            PrintFileFound(file);
 
+            //Print Line Data
+            foreach (var line in matchingLines)
+            {
+                if (attemptQuit)
+                    return;
+
+                var firstPart = $"({line.LineNumber}) ";
+                var wholeLine = $"{firstPart}{line.LineText}";
+
+                var MatchStartIdx = line.MatchStartIdx + firstPart.Length;
+                var MatchEndIdx = line.MatchEndIdx + firstPart.Length;
+
+                var lineSpan = ConsoleTruncate(wholeLine);
+
+                //is the found string still in here? it could have been truncted off...
+                if (lineSpan.Length >= (firstPart.Length + line.MatchEndIdx+1))
+                {
+                    //it wasn't cut off
+                    SetColor(ConsoleColor.Yellow);
+                    System.Console.Write(lineSpan.Slice(0, MatchStartIdx).ToString());
+
+
+                    SetColor(ConsoleColor.DarkCyan);
+                    System.Console.Write(lineSpan.Slice(MatchStartIdx, MatchEndIdx-MatchStartIdx ).ToString());
+
+                    SetColor(ConsoleColor.Yellow);
+                    System.Console.WriteLine(lineSpan.Slice(MatchEndIdx, lineSpan.Length-MatchEndIdx).ToString());
+                }
+                else
+                {
+                    SetColor(ConsoleColor.Yellow);
+                    System.Console.WriteLine(lineSpan.ToString());
+                }
+            }
+        }
+
+        private void PrintFileFound(string file) {
             PrintWipe("");
 
             var fileSpan = file.AsSpan();
@@ -244,50 +279,6 @@ namespace Orvina.Console
             SetColor(ConsoleColor.DarkGray);
             WriteLine($"({fileId})");
 
-            fileMap.Add(fileId, file);
-
-            SetColor(ConsoleColor.Green);
-            foreach (string line in matchingLines)
-            {
-                var lineSpan = ConsoleTruncate(line);
-
-                int nextIdx;
-                while ((nextIdx = lineSpan.IndexOf(searchText, StringComparison.OrdinalIgnoreCase)) >= 0)
-                {
-                    ReadOnlySpan<char> slice;
-
-                    if (nextIdx > 0)//
-                    {
-                        slice = lineSpan.Slice(0, nextIdx);
-                        lineSpan = lineSpan.Slice(nextIdx, lineSpan.Length - nextIdx);
-                    }
-                    else//==0
-                    {
-                        slice = lineSpan.Slice(0, searchText.Length);
-                        lineSpan = lineSpan.Slice(nextIdx + searchText.Length, lineSpan.Length - (nextIdx + searchText.Length));
-                    }
-
-                    SetColor(slice.Equals(searchText, StringComparison.OrdinalIgnoreCase)
-                        ? ConsoleColor.DarkCyan
-                        : ConsoleColor.Yellow);
-                    System.Console.Write(slice.ToString());
-                }
-
-                if (lineSpan.Length > 0)
-                {
-                    SetColor(lineSpan.Equals(searchText, StringComparison.OrdinalIgnoreCase)
-                        ? ConsoleColor.DarkCyan
-                        : ConsoleColor.Yellow);
-                    System.Console.Write(lineSpan.ToString());
-                }
-
-                WriteLine("");
-
-                if (attemptQuit)
-                {
-                    break;
-                }
-            }
         }
 
         private void Search_OnProgress(string filePath, bool isFile)

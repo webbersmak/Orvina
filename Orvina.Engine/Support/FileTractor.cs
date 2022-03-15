@@ -83,8 +83,7 @@ namespace Orvina.Engine
             AsyncContext context;
             lock (asyncReads)//don't use spinlock here
             {
-                context = asyncReads[callbackId];
-                asyncReads.Remove(callbackId);
+                context = asyncReads.RemoveGet(callbackId);
             }
 
             LockHelper.RunLock(ref dataQLock, () =>

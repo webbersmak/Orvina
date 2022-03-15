@@ -1,4 +1,6 @@
-﻿namespace Orvina.Engine
+﻿using static Orvina.Engine.SearchEngine;
+
+namespace Orvina.Engine
 {
     internal abstract class Event
     {
@@ -30,14 +32,14 @@
 
     internal sealed class OnFileFoundEvent : Event
     {
-        public OnFileFoundEvent(string file, string[] lines) : base(Event.EventTypes.OnFileFound)
+        public OnFileFoundEvent(string file, List<LineResult> lines) : base(Event.EventTypes.OnFileFound)
         {
             this.File = file;
             this.Lines = lines;
         }
 
         public readonly string File;
-        public readonly string[] Lines;
+        public readonly List<LineResult> Lines;
     }
 
     internal sealed class OnProgressEvent : Event
