@@ -1,8 +1,8 @@
 {
-    "profiles": {
-        "Orvina.Console": {
-            "commandName": "Project",
-            "commandLineArgs": "\"C:\\\\\" orvina .cs"
-        }
+  "profiles": {
+    "Orvina.Console": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\deleteme\" j*b*n .txt"
     }
+  }
 }

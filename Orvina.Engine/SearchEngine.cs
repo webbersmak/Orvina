@@ -345,6 +345,11 @@ namespace Orvina.Engine
             /// </summary>
             public string LineText;
 
+            public List<LineMatch> LineMatches;
+        }
+
+        public struct LineMatch
+        {
             /// <summary>
             /// where in the line the match ends
             /// </summary>

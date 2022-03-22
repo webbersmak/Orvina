@@ -73,7 +73,6 @@ namespace Orvina.Console
 
         private static void PrintWipe(ReadOnlySpan<char> text)
         {
-            SetColor(ConsoleColor.Green);
             System.Console.Write($"\r{ConsoleTruncate(text)}".PadRight(System.Console.BufferWidth));
         }
 
@@ -217,6 +216,9 @@ namespace Orvina.Console
         {
             if (showErrors)
             {
+                if (showProgress)
+                    PrintWipe("");
+
                 SetColor(ConsoleColor.Red);
                 WriteLine($"\r{error}");
             }
@@ -233,52 +235,56 @@ namespace Orvina.Console
                 if (attemptQuit)
                     return;
 
-                var firstPart = $"({line.LineNumber}) ";
-                var wholeLine = $"{firstPart}{line.LineText}";
+                SetColor(ConsoleColor.Yellow);
+                System.Console.Write($"({line.LineNumber}) ");
 
-                var MatchStartIdx = line.MatchStartIdx + firstPart.Length;
-                var MatchEndIdx = line.MatchEndIdx + firstPart.Length;
-
-                var lineSpan = ConsoleTruncate(wholeLine);
-
-                //is the found string still in here? it could have been truncted off...
-                if (lineSpan.Length >= (firstPart.Length + line.MatchEndIdx+1))
+                var lastPrintedIndex = -1;
+                string next;
+                foreach (var match in line.LineMatches)
                 {
-                    //it wasn't cut off
-                    SetColor(ConsoleColor.Yellow);
-                    System.Console.Write(lineSpan.Slice(0, MatchStartIdx).ToString());
-
+                    if (match.MatchStartIdx > lastPrintedIndex)
+                    {
+                        SetColor(ConsoleColor.Yellow);
+                        lastPrintedIndex = lastPrintedIndex < 0 ? 0 : lastPrintedIndex;
+                        next = line.LineText.Substring(lastPrintedIndex, match.MatchStartIdx- lastPrintedIndex);
+                        System.Console.Write(next);
+                    }
 
                     SetColor(ConsoleColor.DarkCyan);
-                    System.Console.Write(lineSpan.Slice(MatchStartIdx, MatchEndIdx-MatchStartIdx ).ToString());
+                    next = line.LineText.Substring(match.MatchStartIdx, match.MatchEndIdx - match.MatchStartIdx);
+                    System.Console.Write(next);
+                    lastPrintedIndex = match.MatchEndIdx;
+                }
 
-                    SetColor(ConsoleColor.Yellow);
-                    System.Console.WriteLine(lineSpan.Slice(MatchEndIdx, lineSpan.Length-MatchEndIdx).ToString());
+                SetColor(ConsoleColor.Yellow);
+                if (lastPrintedIndex < line.LineText.Length - 1)
+                {
+                    next = line.LineText.Substring(lastPrintedIndex, line.LineText.Length - lastPrintedIndex);
+                    System.Console.WriteLine(next);
                 }
                 else
                 {
-                    SetColor(ConsoleColor.Yellow);
-                    System.Console.WriteLine(lineSpan.ToString());
+                    System.Console.WriteLine();
                 }
             }
         }
 
-        private void PrintFileFound(string file) {
-            PrintWipe("");
+        private void PrintFileFound(string file)
+        {
+            if (this.showProgress)
+                PrintWipe("");
 
             var fileSpan = file.AsSpan();
-            var lastSlash = fileSpan.LastIndexOf('\\') + 1;
-            var prefix = fileSpan.Slice(0, lastSlash);
-            var fileName = fileSpan.Slice(lastSlash, fileSpan.Length - lastSlash).ToString();
+            var lastSlashIdx = fileSpan.LastIndexOf('\\') + 1;
+            var prefix = fileSpan.Slice(0, lastSlashIdx);
+            var fileName = fileSpan.Slice(lastSlashIdx, fileSpan.Length - lastSlashIdx).ToString();
 
             SetColor(ConsoleColor.Green);
             System.Console.Write($"\nFound: {prefix}");
             SetColor(ConsoleColor.Red);
             System.Console.Write(fileName);
-
             SetColor(ConsoleColor.DarkGray);
             WriteLine($"({fileId})");
-
         }
 
         private void Search_OnProgress(string filePath, bool isFile)
@@ -287,12 +293,15 @@ namespace Orvina.Console
             {
                 searchCount++;
             }
+
+            SetColor(ConsoleColor.Green);
             PrintWipe(filePath);
         }
 
         private void Search_OnSearchComplete()
         {
-            PrintWipe("");
+            if (showProgress)
+                PrintWipe("");
             stopwatch.Stop();
             SetColor(ConsoleColor.Gray);
             WriteLine($"\nSearch Complete in {Math.Round(stopwatch.Elapsed.TotalSeconds, 2)}s!\n");

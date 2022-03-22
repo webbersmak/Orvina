@@ -2,10 +2,11 @@
 {
     internal static class TextBytes
     {
-        public static readonly byte asterisk = 0x2a;
-        public static readonly byte newLine = 0x0a;
-        public static readonly byte questionMark = 0x3f;
-        public static readonly byte tilde = 0x7e;
+        public const byte asterisk = 0x2a;
+        public const byte newLine = 0x0a;
+        public const byte questionMark = 0x3f;
+        public const byte tilde = 0x7e;
+        public const byte carriageReturn = 0x0d;
 
         public struct SearchText
         {
@@ -14,8 +15,19 @@
             public readonly int maxIdx;
             public readonly int length;
 
+            public readonly bool hasStarWildCard = false;
+
             public SearchText(string text)
             {
+                for (var i = 0; i < text.Length; i++)
+                {
+                    if (text[i] == '*' && (i == 0 || text[i-1] != '~'))
+                    {
+                        hasStarWildCard = true;
+                        break;
+                    }
+                }
+
                 upper = System.Text.Encoding.UTF8.GetBytes(text.ToUpper());
                 lower = System.Text.Encoding.UTF8.GetBytes(text.ToLower());
                 maxIdx = upper.Length - 1;
@@ -23,14 +35,11 @@
             }
         }
 
-        public static int CountLines(byte[] data, int upToIndex, int startIdx = 0)
+        public static int CountLines(ReadOnlySpan<byte> data, int upToIndex)
         {
             var count = 1;
-            for (var i = startIdx; i < data.Length; i++)
+            for (var i = 0; i <= upToIndex && i < data.Length; i++)
             {
-                if (i > upToIndex)
-                    return count;
-
                 if (data[i] == newLine)
                     count++;
             }
@@ -38,52 +47,52 @@
             return count;
         }
 
-        public static int IndexOf(byte[] data, SearchText searchText, int initialIdx = 0)
+        /// <summary>
+        /// searchText can have uppercase, lowercase, ? wildcard only
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="searchText"></param>
+        /// <param name="initialIdx"></param>
+        /// <returns></returns>
+        public static int IndexOf(ReadOnlySpan<byte> data, SearchText searchText, int initialIdx = 0, int maxIndex = 0)
         {
             var j = 0;
- 
-            var thoughtIdx = 0;
+            var thoughtIdx = -1;
 
-            for (var i = initialIdx; i < data.Length; i++)
+            for (var i = initialIdx; i < data.Length && (maxIndex == 0 || i <= maxIndex); i++)
             {
-                //is the search string matching up with the text
-                var rawMatch = (data[i] == searchText.upper[j] || data[i] == searchText.lower[j])
-                            //include questionMark if not preceeded by tilde
-                            || (searchText.upper[j] == questionMark && (j - 1 < 0 || searchText.upper[j - 1] != tilde));
-
-                if (j == 0 && rawMatch) //first match
+                if (searchText.upper[j] == tilde && j + 1 < searchText.length && searchText.upper[j + 1] == questionMark) //if searching for a ~
                 {
-                    //we're on the first character
-                    thoughtIdx = i;
+                    j++;//move j up
+                }
+
+                if ((searchText.upper[j] == questionMark && (j - 1 < 0 || searchText.upper[j - 1] != tilde)) //if searching for a '?'
+                    || (data[i] == searchText.upper[j] || data[i] == searchText.lower[j])) //if searching for exact match
+                {
+                    if (thoughtIdx == -1)
+                        thoughtIdx = i;
+
                     j++;
                     if (j > searchText.maxIdx)
-                        return i;
+                        return thoughtIdx;
                 }
-                else if (j > 0)
+                else
                 {
-
-                    if (rawMatch) //second+ match
-                    {
-                        j++;
-                        if (j > searchText.maxIdx) //we got to the end of our match string
-                            return thoughtIdx;
-                    }
-                    else //no match
-                    {
-                        j = 0;
+                    j = 0;
+                    if (thoughtIdx >= 0)
                         i = thoughtIdx;
-                    }
+                    thoughtIdx = -1;
                 }
             }
 
-            return -1;
+            return j == searchText.maxIdx ? thoughtIdx : -1;
         }
 
-        public static int RightNewLineIndex(byte[] data, int initialIdx)
+        public static int RightNewLineIndex(ReadOnlySpan<byte> data, int initialIdx)
         {
             for (var i = initialIdx; i < data.Length; i++)
             {
-                if (data[i] == newLine)
+                if (data[i] == newLine || data[i] == carriageReturn)
                 {
                     return i;
                 }
@@ -92,11 +101,11 @@
             return -1;
         }
 
-        public static int LeftNewLineIndex(byte[] data, int initialIdx)
+        public static int LeftNewLineIndex(ReadOnlySpan<byte> data, int initialIdx)
         {
             for (var i = initialIdx; i >= 0; i--)
             {
-                if (data[i] == newLine)
+                if (data[i] == newLine || data[i] == carriageReturn)
                 {
                     return i;
                 }
