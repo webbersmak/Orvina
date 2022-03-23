@@ -2,7 +2,7 @@
   "profiles": {
     "Orvina.Console": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\deleteme\" j*b*n .txt"
+      "commandLineArgs": "\"C:\\deleteme\" house .txt"
     }
   }
 }

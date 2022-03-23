@@ -48,12 +48,13 @@ namespace Orvina.Console
                     WriteLine("Usage:\n");
                     WriteLine("orvina <search path> <search text> <file extensions> [-nosub]\n");
                     WriteLine("     <search path>   Specifies the directory to search");
-                    WriteLine("     <search text>   Declares the text to search for in the files");
+                    WriteLine("     <search text>   Declares the text to search for in the files.");
+                    WriteLine("                     Wildcards * and ? are supported.");
                     WriteLine("     <file extensions>   Comma separated list of file extensions. Restricts searching to specific file types.");
-                    WriteLine("     -progress           If given, show the current path or file being scanned.");
-                    WriteLine("     -nosub              If given, do not search subdirectories in the search path.");
-                    WriteLine("     -debug              If given, show error messages.");
-                    WriteLine("     -hidden             If given, search hidden directories.");
+                    WriteLine("     -progress           Show the current path or file being scanned.");
+                    WriteLine("     -nosub              Do not search subdirectories in the search path.");
+                    WriteLine("     -debug              Show error messages.");
+                    WriteLine("     -hidden             Search hidden directories.");
                     WriteLine("");
                     WriteLine("Example:\n");
                     WriteLine("orvina.exe \"C:\\my files\" \"return 1\"  \".cs,.js\"\n");
@@ -102,7 +103,16 @@ namespace Orvina.Console
                 }
                 WriteLine("searching...('q' to quit)\n");
                 stopwatch.Start();
-                search.Start(searchPath, includeSubdirectories, searchText, showHidden, fileExtensions);
+
+                try
+                {
+                    search.Start(searchPath, includeSubdirectories, searchText, showHidden, fileExtensions);
+                }
+                catch (Exception e)
+                {
+                    WriteLine(e.Message);
+                    Environment.Exit(0);
+                }
 
                 while (!searchEnded)
                 {
@@ -173,6 +183,24 @@ namespace Orvina.Console
             }
         }
 
+        private void PrintFileFound(string file)
+        {
+            if (this.showProgress)
+                PrintWipe("");
+
+            var fileSpan = file.AsSpan();
+            var lastSlashIdx = fileSpan.LastIndexOf('\\') + 1;
+            var prefix = fileSpan.Slice(0, lastSlashIdx);
+            var fileName = fileSpan.Slice(lastSlashIdx, fileSpan.Length - lastSlashIdx).ToString();
+
+            SetColor(ConsoleColor.Green);
+            System.Console.Write($"\nFound: {prefix}");
+            SetColor(ConsoleColor.Red);
+            System.Console.Write(fileName);
+            SetColor(ConsoleColor.DarkGray);
+            WriteLine($"({fileId})");
+        }
+
         private AppState ProcessArgs(string[] args)
         {
             try
@@ -230,61 +258,22 @@ namespace Orvina.Console
             PrintFileFound(file);
 
             //Print Line Data
-            foreach (var line in matchingLines)
+            for (var i= 0; i < matchingLines.Count; i++)
             {
                 if (attemptQuit)
                     return;
 
                 SetColor(ConsoleColor.Yellow);
-                System.Console.Write($"({line.LineNumber}) ");
+                System.Console.Write($"({matchingLines[i].LineNumber}) ");
 
-                var lastPrintedIndex = -1;
-                string next;
-                foreach (var match in line.LineMatches)
+                for (var j = 0; j < matchingLines[i].LineParts.Count; j++)
                 {
-                    if (match.MatchStartIdx > lastPrintedIndex)
-                    {
-                        SetColor(ConsoleColor.Yellow);
-                        lastPrintedIndex = lastPrintedIndex < 0 ? 0 : lastPrintedIndex;
-                        next = line.LineText.Substring(lastPrintedIndex, match.MatchStartIdx- lastPrintedIndex);
-                        System.Console.Write(next);
-                    }
-
-                    SetColor(ConsoleColor.DarkCyan);
-                    next = line.LineText.Substring(match.MatchStartIdx, match.MatchEndIdx - match.MatchStartIdx);
-                    System.Console.Write(next);
-                    lastPrintedIndex = match.MatchEndIdx;
+                    SetColor(matchingLines[i].LineParts[j].IsMatch ? ConsoleColor.DarkCyan : ConsoleColor.Yellow);
+                    System.Console.Write(matchingLines[i].LineParts[j].Text);                    
                 }
 
-                SetColor(ConsoleColor.Yellow);
-                if (lastPrintedIndex < line.LineText.Length - 1)
-                {
-                    next = line.LineText.Substring(lastPrintedIndex, line.LineText.Length - lastPrintedIndex);
-                    System.Console.WriteLine(next);
-                }
-                else
-                {
-                    System.Console.WriteLine();
-                }
+                System.Console.WriteLine();
             }
-        }
-
-        private void PrintFileFound(string file)
-        {
-            if (this.showProgress)
-                PrintWipe("");
-
-            var fileSpan = file.AsSpan();
-            var lastSlashIdx = fileSpan.LastIndexOf('\\') + 1;
-            var prefix = fileSpan.Slice(0, lastSlashIdx);
-            var fileName = fileSpan.Slice(lastSlashIdx, fileSpan.Length - lastSlashIdx).ToString();
-
-            SetColor(ConsoleColor.Green);
-            System.Console.Write($"\nFound: {prefix}");
-            SetColor(ConsoleColor.Red);
-            System.Console.Write(fileName);
-            SetColor(ConsoleColor.DarkGray);
-            WriteLine($"({fileId})");
         }
 
         private void Search_OnProgress(string filePath, bool isFile)

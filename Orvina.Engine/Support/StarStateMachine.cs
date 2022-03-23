@@ -7,19 +7,14 @@
         public int IndexOf(ReadOnlySpan<byte> input, TextBytes.SearchText searchText, out int endIdx, int startIdx = 0)
         {
             endIdx = 0;
-
-            var wilcardStart = searchText.upper[0] == TextBytes.asterisk || searchText.upper[0] == TextBytes.questionMark;
-
-            //input might be "i don't want to do my homework"
             for (var i = startIdx; i < input.Length; i++)
             {
-                if (!wilcardStart && searchText.upper[0] != input[i] && searchText.lower[0] != input[i])
+                if (searchText.upper[0] != input[i] && searchText.lower[0] != input[i])
                 {
                     continue;
                 }
 
-                var length = input.Length - i;
-                if (Match(input.Slice(i, length), searchText, out endIdx))
+                if (Match(input.Slice(i, input.Length - i), searchText, out endIdx))
                 {
                     endIdx = i + endIdx + 1;
                     return i;
@@ -43,10 +38,6 @@
         /// <returns></returns>
         public bool Match(ReadOnlySpan<byte> input, TextBytes.SearchText searchText, out int endIdx)
         {
-#if DEBUG
-            var inputText = System.Text.Encoding.UTF8.GetString(input);
-#endif
-
             allStates = BuildMachine(searchText);
             endIdx = 0;
             var next = allStates[0];
@@ -68,10 +59,15 @@
                 }
             }
 
-            endIdx = input.Length - 1;
-            return true;
+            //endIdx = input.Length - 1;
+            return false;
         }
 
+        /// <summary>
+        /// starting or ending with '*' not supported
+        /// </summary>
+        /// <param name="searchText"></param>
+        /// <returns></returns>
         private static List<State> BuildMachine(TextBytes.SearchText searchText)
         {
             var initialState = new State()
@@ -95,20 +91,20 @@
                     }
                     break;
 
-                case TextBytes.asterisk:
-                    if (searchText.length == 1)
-                    {
-                        initialState.endState = true;
-                    }
-                    else
-                    {
-                        initialState.stayOnNot = true;
+                //case TextBytes.asterisk:
+                //    if (searchText.length == 1)
+                //    {
+                //        initialState.endState = true;
+                //    }
+                //    else
+                //    {
+                //        initialState.stayOnNot = true;
 
-                        var idx = (searchText.upper[1] == TextBytes.tilde && searchText.length >= 3 && (searchText.upper[2] == TextBytes.questionMark || searchText.upper[2] == TextBytes.asterisk)) ? 2 : 1;
-                        initialState.lowerTrigger = searchText.lower[idx];
-                        initialState.upperTrigger = searchText.upper[idx];
-                    }
-                    break;
+                //        var idx = (searchText.upper[1] == TextBytes.tilde && searchText.length >= 3 && (searchText.upper[2] == TextBytes.questionMark || searchText.upper[2] == TextBytes.asterisk)) ? 2 : 1;
+                //        initialState.lowerTrigger = searchText.lower[idx];
+                //        initialState.upperTrigger = searchText.upper[idx];
+                //    }
+                //    break;
 
                 case TextBytes.questionMark:
                     initialState.acceptAny = true;
@@ -122,7 +118,7 @@
             }
 
             //create the initial state
-            var states = new List<State>
+            var states = new List<State>(searchText.length)
             {
                 initialState
             };

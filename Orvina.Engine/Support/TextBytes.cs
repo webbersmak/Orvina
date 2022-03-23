@@ -8,6 +8,10 @@
         public const byte tilde = 0x7e;
         public const byte carriageReturn = 0x0d;
 
+        public const char starChar = '*';
+        public const char tildeChar = '~';
+
+
         public struct SearchText
         {
             public readonly byte[] upper;
@@ -19,9 +23,12 @@
 
             public SearchText(string text)
             {
+                if (text[0] == starChar || (text[text.Length - 1] == starChar && (text.Length == 1 || text[text.Length - 2] != tildeChar)))
+                    throw new Exception("search cannot start or end with * wildcard");
+
                 for (var i = 0; i < text.Length; i++)
                 {
-                    if (text[i] == '*' && (i == 0 || text[i-1] != '~'))
+                    if (text[i] == starChar && (i == 0 || text[i - 1] != tildeChar))
                     {
                         hasStarWildCard = true;
                         break;

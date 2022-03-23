@@ -242,7 +242,7 @@ namespace Orvina.Engine
 
             try
             {
-                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }, eo).ToArray();
+                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry(entry.ToFullPath(), entry.IsDirectory), eo).ToArray();
 
                 for (i = 0; i < pathEntries.Length && includeSubdirectories; i++)
                 {
@@ -336,35 +336,44 @@ namespace Orvina.Engine
         public struct LineResult
         {
             /// <summary>
-            /// the line number
+            /// the line number in the file
             /// </summary>
             public int LineNumber;
 
             /// <summary>
-            /// a text line that contains the matching text
+            /// this is a line of text in the file where a match occurred.
             /// </summary>
-            public string LineText;
+            public List<LinePart> LineParts = new();
 
-            public List<LineMatch> LineMatches;
+            public LineResult(int lineNumber)
+            {
+                LineNumber = lineNumber;
+            }
         }
 
-        public struct LineMatch
-        {
-            /// <summary>
-            /// where in the line the match ends
-            /// </summary>
-            public int MatchEndIdx;
 
-            /// <summary>
-            /// where in the line the match starts
-            /// </summary>
-            public int MatchStartIdx;
+        public struct LinePart
+        {
+            public string Text;
+            public bool IsMatch;
+
+            public LinePart(string text, bool isMatch)
+            {
+                Text = text;
+                IsMatch = isMatch;
+            }
         }
 
         private struct FileEntry
         {
             public bool IsDirectory;
             public string Path;
+
+            public FileEntry(string path, bool isDirectory)
+            {
+                Path = path;
+                IsDirectory = isDirectory;
+            }
         }
     }
 }

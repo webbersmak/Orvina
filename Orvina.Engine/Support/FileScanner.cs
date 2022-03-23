@@ -41,35 +41,47 @@ namespace Orvina.Engine.Support
                 lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : endFileIdx;
 
                 //suppose searchText = 50, and lineStartIdx = 40, then 10 is the index of searchText in this line
+
+                var lineResult = new LineResult(TextBytes.CountLines(data, lineStartIdx));
+
                 var matchStartIdx = searchTextIdx - lineStartIdx;
-
-                matchingLines.Add(new LineResult()
+                var matchEndIdx = matchStartIdx + searchText.length;
+                if (matchStartIdx == 0)
                 {
-                    LineNumber = TextBytes.CountLines(data, lineStartIdx),
-                    LineText = Encoding.UTF8.GetString(data.Slice(lineStartIdx, lineEndIdx - lineStartIdx + 1)),
-                    LineMatches = new()
-                    {
-                        new LineMatch
-                        {
-                            MatchStartIdx = matchStartIdx,
-                            MatchEndIdx = matchStartIdx + searchText.length
-                        }
-                    }
-                });
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx, matchEndIdx)), true));
+                }
+                else
+                {
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx, matchStartIdx)), false));
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx + (matchStartIdx), searchText.length)), true));
+                }
 
+
+                //secondary instances in the line
+                var prevIdx = (lineStartIdx + (matchStartIdx)) + (matchEndIdx - (matchStartIdx));
                 while ((searchTextIdx = TextBytes.IndexOf(data, searchText, (searchTextIdx + searchText.length), lineEndIdx)) >= 0 && !stop)
                 {
-                    matchStartIdx = searchTextIdx - lineStartIdx;
-                    matchingLines[matchingLines.Count - 1].LineMatches.Add(new LineMatch
+                    if (prevIdx < searchTextIdx)
                     {
-                        MatchStartIdx = matchStartIdx,
-                        MatchEndIdx = matchStartIdx + searchText.length
-                    });
+                        //house
+                        lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(prevIdx, searchTextIdx - prevIdx)), false));
+                    }
+
+                    //house
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(searchTextIdx, searchText.length)), true));
+                    prevIdx = searchTextIdx + searchText.length;
                 }
+
+                if (prevIdx < lineEndIdx)
+                {
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(prevIdx, lineEndIdx - prevIdx+1)), false));
+                }
+
+                matchingLines.Add(lineResult);
 
                 searchTextIdx = lineEndIdx + 1;
             }
-            //[0][1][2]
+
             return matchingLines;
         }
 
@@ -80,8 +92,8 @@ namespace Orvina.Engine.Support
 
             var lastNewline = -1;
             var lastIdx = data.Length - 1;
-            var lineCount = 1;
-            for (var i = 0; i < data.Length; i++)
+            var lineCount = 0;
+            for (var i = 0; i < data.Length && !stop; i++)
             {
                 if (data[i] == TextBytes.newLine || i == lastIdx)
                 {
@@ -89,26 +101,46 @@ namespace Orvina.Engine.Support
                     if (i > lastNewline)
                     {
                         lastNewline = lastNewline < 0 ? 0 : lastNewline;
-                        var lineData = data.Slice(lastNewline, i - lastNewline - 1);
+                        var lineData = data.Slice(lastNewline, i - lastNewline + 1);
 
                         int idx;
                         if ((idx = fsm.IndexOf(lineData, searchText, out int endIdx)) >= 0)
                         {
+                            var lineResult = new LineResult(lineCount);
 
-
-                            matchingLines.Add(new LineResult()
+                            if (idx == 0)
                             {
-                                LineNumber = lineCount,
-                                LineText = Encoding.UTF8.GetString(lineData),
-                                LineMatches = new()
+                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(idx, endIdx - idx)), true));
+                            }
+                            else
+                            {
+                                //test in the large dry
+                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(0, idx)), false));
+                                //house
+                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(idx, endIdx - idx)), true));
+                            }
+
+                            //secondary instances in the line
+                            var prevIdx = idx + (endIdx - idx);
+                            while ((idx = fsm.IndexOf(lineData, searchText, out endIdx, endIdx)) >= 0)
+                            {
+                                if (prevIdx < idx)
                                 {
-                                    new LineMatch
-                                    {
-                                        MatchStartIdx = idx,
-                                        MatchEndIdx = endIdx
-                                    }
+                                    //house
+                                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(prevIdx, idx - prevIdx)), false));
                                 }
-                            });
+
+                                //house
+                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(idx, endIdx - idx + 1)), true));
+                                prevIdx = idx + (endIdx - idx + 1);
+                            }
+
+                            if (prevIdx < lineData.Length - 1)
+                            {
+                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(prevIdx, lineData.Length - prevIdx)), false));
+                            }
+
+                            matchingLines.Add(lineResult);
                         }
 
                         lastNewline = i + 1;
