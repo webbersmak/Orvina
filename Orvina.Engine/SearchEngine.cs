@@ -10,6 +10,7 @@ namespace Orvina.Engine
             BufferSize = 1024
         };
 
+        private readonly FileScanner fileScanner = new();
         private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
         private string[] fileExtensions;
@@ -24,7 +25,6 @@ namespace Orvina.Engine
         private SpinLock runnerListLock = new();
         private int runnerQueueId;
         private SpinLock runnerQueueIdLock = new();
-        private string searchText;
         private bool stop;
         private int totalQueueCount;
         private SpinLock tractorLock = new();
@@ -37,7 +37,7 @@ namespace Orvina.Engine
         /// <summary>
         /// returns the file and the lines in the file that match the search
         /// </summary>
-        public event Action<string, string[]> OnFileFound;
+        public event Action<string, List<LineResult>> OnFileFound;
 
         /// <summary>
         /// returns the currently scanned file
@@ -74,7 +74,7 @@ namespace Orvina.Engine
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
         {
-            Start(searchPath, includeSubirectories, searchText, false, fileExtensions);
+            Start(searchPath, includeSubirectories, searchText, false, false, fileExtensions);
         }
 
         /// <summary>
@@ -82,10 +82,11 @@ namespace Orvina.Engine
         /// </summary>
         /// <param name="searchPath">such as @"C:\my files"</param>
         /// <param name="includeSubirectories">true or false</param>
+        /// <param name="caseSensitive">true or false, inidicates the search text is case sensitive</param>
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
         /// <param name="includeHidden">true or false</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
-        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, params string[] fileExtensions)
+        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, bool caseSensitive, params string[] fileExtensions)
         {
             if (tasks.Any() && tasks.Any(t => !t.IsCompletedSuccessfully))
             {
@@ -98,12 +99,15 @@ namespace Orvina.Engine
                 Dispose();
             }
 
+            this.fileScanner.stop = stop = false;
+
             includeSubdirectories = includeSubirectories;
             eo.AttributesToSkip = includeHidden ? FileAttributes.System : (FileAttributes.System | FileAttributes.Hidden);
 
             fileTractor = new();
 
-            this.searchText = searchText;
+            this.fileScanner.searchText = new(searchText, caseSensitive);
+
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
@@ -136,8 +140,7 @@ namespace Orvina.Engine
         /// </summary>
         public void Stop()
         {
-            stop = true; //let threads run to completion
-            //HandleEvent(new OnSearchCompleteEvent());
+            this.fileScanner.stop = stop = true; //let threads run to completion
         }
 
         private void HandleEvent(Event e)
@@ -240,13 +243,11 @@ namespace Orvina.Engine
 
             try
             {
-                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry { IsDirectory = entry.IsDirectory, Path = entry.ToFullPath() }, eo).ToArray();
+                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry(entry.ToFullPath(), entry.IsDirectory), eo).ToArray();
 
                 for (i = 0; i < pathEntries.Length && includeSubdirectories; i++)
                 {
-                    var entry = pathEntries[i];
-
-                    if (entry.IsDirectory)
+                    if (pathEntries[i].IsDirectory)
                     {
                         LockHelper.RunLock(ref runnerListLock, () =>
                         {
@@ -262,7 +263,7 @@ namespace Orvina.Engine
                         var target = runnerList[targetQueueId];
                         lock (target) //lock my list
                         {
-                            target.Enqueue(entry.Path);
+                            target.Enqueue(pathEntries[i].Path);
                         }
                     }
                 }
@@ -283,11 +284,9 @@ namespace Orvina.Engine
                 {
                     for (i = 0; i < pathEntries.Length; i++)
                     {
-                        var entry = pathEntries[i];
-
-                        if (!entry.IsDirectory && entry.Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
+                        if (!pathEntries[i].IsDirectory && pathEntries[i].Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
                         {
-                            if (fileTractor.TryEnqueue(entry.Path))
+                            if (fileTractor.TryEnqueue(pathEntries[i].Path))
                             {
                                 LockHelper.RunLock(ref tractorLock, () =>
                                 {
@@ -297,7 +296,7 @@ namespace Orvina.Engine
 
                             if (raiseProgress)
                             {
-                                HandleEvent(new OnProgressEvent(Path.GetFileName(entry.Path), true));
+                                HandleEvent(new OnProgressEvent(Path.GetFileName(pathEntries[i].Path), true));
                             }
                         }
                     }
@@ -314,39 +313,11 @@ namespace Orvina.Engine
 
         private void ScanFile(FileTractor.CompleteFile file)
         {
-            var matchingLines = QFactory<string>.GetQ();
+            List<LineResult> matchingLines;
 
             try
             {
-                var all = System.Text.Encoding.UTF8.GetString(file.data);
-
-                //most cases the file won't contain the searchText at all
-                var searchTextIdx = 0;
-                var endFileIdx = all.Length - 1;
-
-                var startIdx = 0;
-                var lineNum = 1;
-
-                while (searchTextIdx < endFileIdx && (searchTextIdx = all.IndexOf(searchText, searchTextIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && !stop)
-                {
-                    var lineStartIdx = all.LastIndexOf("\n", searchTextIdx);
-                    var lineEndIdx = all.IndexOf("\n", searchTextIdx + searchText.Length);
-
-                    lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : searchTextIdx;
-                    lineEndIdx = lineEndIdx >= 0 ? lineEndIdx : searchTextIdx + searchText.Length;
-
-                    var extractedLine = all.AsSpan().Slice(lineStartIdx, lineEndIdx - lineStartIdx);
-
-                    int newLineIdx;//idx of \n character
-                    while (startIdx < endFileIdx && (newLineIdx = all.IndexOf("\n", startIdx, StringComparison.OrdinalIgnoreCase)) >= 0 && newLineIdx < lineStartIdx && !stop)
-                    {
-                        startIdx = newLineIdx + 1;
-                        lineNum++;
-                    }
-
-                    QFactory<string>.Enqueue(matchingLines, $"({lineNum}) {extractedLine}");
-                    searchTextIdx = lineEndIdx;
-                }
+                matchingLines = fileScanner.ScanFile(file.data);
             }
             catch (Exception ex)
             {
@@ -354,30 +325,56 @@ namespace Orvina.Engine
                 {
                     HandleEvent(new OnErrorEvent(ex.ToString()));
                 }
+                return;
             }
 
-            if (QFactory<string>.Any(matchingLines))
+            if (matchingLines.Count > 0)
             {
-                var lines = new string[QFactory<string>.Count(matchingLines)];
-                var i = 0;
-                while (QFactory<string>.TryDequeue(matchingLines, out string value))
-                {
-                    lines[i++] = value;
-
-                    if (stop)
-                        break;
-                }
-
-                HandleEvent(new OnFileFoundEvent(file.fileName, lines));
+                HandleEvent(new OnFileFoundEvent(file.fileName, matchingLines));
             }
+        }
 
-            QFactory<string>.ReturnQ(matchingLines);
+        public struct LineResult
+        {
+            /// <summary>
+            /// the line number in the file
+            /// </summary>
+            public int LineNumber;
+
+            /// <summary>
+            /// this is a line of text in the file where a match occurred.
+            /// </summary>
+            public List<LinePart> LineParts = new();
+
+            public LineResult(int lineNumber)
+            {
+                LineNumber = lineNumber;
+            }
+        }
+
+
+        public struct LinePart
+        {
+            public string Text;
+            public bool IsMatch;
+
+            public LinePart(string text, bool isMatch)
+            {
+                Text = text;
+                IsMatch = isMatch;
+            }
         }
 
         private struct FileEntry
         {
             public bool IsDirectory;
             public string Path;
+
+            public FileEntry(string path, bool isDirectory)
+            {
+                Path = path;
+                IsDirectory = isDirectory;
+            }
         }
     }
 }

@@ -1,16 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Orvina.Engine.Support
+﻿namespace Orvina.Engine.Support
 {
     internal static class LockHelper
     {
-        //public delegate bool MyFunc<T1, T2>(T1 a, out T2 b);
-
-
         public delegate bool Func3<T>(out T a);
 
         public static bool RunLock<T>(ref SpinLock sw, Func3<T> atomicAction, out T b)
@@ -31,7 +22,6 @@ namespace Orvina.Engine.Support
                 }
             }
         }
-
 
         public static void RunLock(ref SpinLock sw, Action atomicAction)
         {
@@ -66,6 +56,5 @@ namespace Orvina.Engine.Support
                 }
             }
         }
- 
     }
 }
