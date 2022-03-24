@@ -1,7 +1,10 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-
-while (true)
+//rerun the search engine 10 times
+//verifies reruning/dispose behaviors
+//edit orveng.start (34is) below to change
+//the parameters for this test
+for (var i = 0; i < 10; i++)
 {
     var running = true;
     var hitCount = 0;

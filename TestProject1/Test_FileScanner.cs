@@ -1,24 +1,14 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Linq;
 
 namespace TestProject1
 {
     [TestClass]
-    public class UnitTest1
+    public class Test_FileScanner
     {
         private static Orvina.Engine.Support.FileScanner scanner = new();
         private static byte[] data = System.Text.Encoding.UTF8.GetBytes(UnitTests.Properties.Resources.Anthem);
-
-
-
-
-
-
-
-
-
-
-
 
         [TestMethod]
         public void VerifyLines()
@@ -117,45 +107,32 @@ namespace TestProject1
             return data.Slice(i, j - i + 1);
         }
 
-
         [TestMethod]
         public void VerifyWildcard_QuestionMark()
         {
-            var result = "O thus be it ever, when freemen shall stand";
-
             scanner.searchText = new("f?ee?en");
-            var lines = scanner.ScanFile(System.Text.Encoding.UTF8.GetBytes(result));
-            Assert.IsTrue(lines[0].LineText == result);
-            Assert.IsTrue(lines.Count == 1);
+            var lines = scanner.ScanFile(data);
+            Assert.IsTrue(lines.Any(l => l.LineParts.Any(l => l.Text == "freemen" && l.IsMatch)));
 
             scanner.searchText = new("free?en");
             lines = scanner.ScanFile(data);
-            Assert.IsTrue(Trim(lines[0].LineText.AsSpan()) == result);
-            Assert.IsTrue(lines.Count == 1);
+            Assert.IsTrue(lines.Any(l => l.LineParts.Any(l => l.Text == "freemen" && l.IsMatch)));
 
             scanner.searchText = new("?ree?en");
             lines = scanner.ScanFile(data);
-            Assert.IsTrue(lines[0].LineText == result);
-            Assert.IsTrue(lines.Count == 1);
+            Assert.IsTrue(lines.Any(l => l.LineParts.Any(l => l.Text == "freemen" && l.IsMatch)));
 
             scanner.searchText = new("??ee?en");
             lines = scanner.ScanFile(data);
-            Assert.IsTrue(lines[0].LineText == result);
-            Assert.IsTrue(lines.Count == 1);
-
-
-
-            result = "And this be our motto: 'In God is our trust.'";
+            Assert.IsTrue(lines.Any(l => l.LineParts.Any(l => l.Text == "freemen" && l.IsMatch)));
 
             scanner.searchText = new("our motto");
             lines = scanner.ScanFile(data);
-            Assert.IsTrue(lines[0].LineText == result);
-            Assert.IsTrue(lines.Count == 1);
+            Assert.IsTrue(lines.Any(l => l.LineParts.Any(l => l.Text == "our motto" && l.IsMatch)));
 
             scanner.searchText = new("ou? ????o");
             lines = scanner.ScanFile(data);
-            Assert.IsTrue(lines[0].LineText == result);
-            Assert.IsTrue(lines.Count == 1);
+            Assert.IsTrue(lines.Any(l => l.LineParts.Any(l => l.Text == "our motto" && l.IsMatch)));
         }
     }
 }

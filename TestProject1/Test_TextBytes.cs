@@ -1,12 +1,11 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
 using Orvina.Engine.Support;
 
 namespace TestProject1
 {
     [TestClass]
     public class Test_TextBytes
-    { 
+    {
         private static byte[] data = System.Text.Encoding.UTF8.GetBytes(UnitTests.Properties.Resources.Anthem);
 
         [TestMethod]
@@ -14,7 +13,7 @@ namespace TestProject1
         {
             var search = new TextBytes.SearchText("O say?");//
             var idx = TextBytes.IndexOf(data, search);
-            Assert.IsTrue(idx==0);
+            Assert.IsTrue(idx == 0);
 
             search = new TextBytes.SearchText("??say?");//
             idx = TextBytes.IndexOf(data, search);
