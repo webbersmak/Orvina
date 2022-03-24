@@ -19,12 +19,14 @@ This repository contains 2 projects:
     
     ![orvina_finished.png](/orvina_finished.png)
 
+    6. Wildcards "?" and "*" are supported. So "p?n" will match "pen" and "pin". And "b*d" will match "bind" and "bound".
+
 2. **Orvina.Engine**
     - Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
     - The only dependency of Orvina.Console
     - Example usage:
     ```
-     using (var search = new Orvina.Engine.SearchEngine())
+    using (var search = new Orvina.Engine.SearchEngine())
     {
             search.OnError += Search_OnError;
             search.OnFileFound += Search_OnFileFound;
@@ -54,6 +56,6 @@ The file tractor leverages Asynchronous File I/O built into the OS. It allows fi
 
 Threads of this type will read the in-memory file byte stream. They read from the File Tractor queue and convert the byte stream to UTF8 text. The reads are synchronized such that only 1 thread may read a file at a time. 
 
-### Notfification Thread
+### Search Mechanism
 
-The notification thread no exists but it originally streamed output to the Console. The "-progress" flag can be used to view the search action. It was decided that having a dedicated thread for Console output was wasted CPU energy that would be better used in the search effort. 
+Orvina converts your search string to bytes and searches for the matching byte string in your files. For search queries that use "*" wildcards, a small state machine is used to determine if the search text exists in a line of text.  
