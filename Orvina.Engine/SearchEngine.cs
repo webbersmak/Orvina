@@ -74,7 +74,7 @@ namespace Orvina.Engine
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
         {
-            Start(searchPath, includeSubirectories, searchText, false, fileExtensions);
+            Start(searchPath, includeSubirectories, searchText, false, false, fileExtensions);
         }
 
         /// <summary>
@@ -82,10 +82,11 @@ namespace Orvina.Engine
         /// </summary>
         /// <param name="searchPath">such as @"C:\my files"</param>
         /// <param name="includeSubirectories">true or false</param>
+        /// <param name="caseSensitive">true or false, inidicates the search text is case sensitive</param>
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
         /// <param name="includeHidden">true or false</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
-        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, params string[] fileExtensions)
+        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, bool caseSensitive, params string[] fileExtensions)
         {
             if (tasks.Any() && tasks.Any(t => !t.IsCompletedSuccessfully))
             {
@@ -105,7 +106,7 @@ namespace Orvina.Engine
 
             fileTractor = new();
 
-            this.fileScanner.searchText = new(searchText);
+            this.fileScanner.searchText = new(searchText, caseSensitive);
 
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;

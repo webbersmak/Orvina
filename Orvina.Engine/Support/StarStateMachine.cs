@@ -173,10 +173,21 @@
                                 newState.stayOnNot = true;
 
                                 //if star is at the end it might mean there is no trigger...!
-                                if (i + 2 < searchText.length)
+                                bool hasCharAfterStar;
+                                while ((hasCharAfterStar = i + 2 < searchText.length) && searchText.upper[i + 2] == TextBytes.asterisk)
+                                    i++;
+
+                                if (hasCharAfterStar)
                                 {
+                                    var nextNextChar = searchText.upper[i + 2];
+                                    if (nextNextChar == TextBytes.asterisk)
+                                    {
+                                        i++;
+                                        //asterisk followed by asterisk?
+                                    }
+
                                     //if the next character is a ~ and is followed by ? or *, then use that for trigger
-                                    var idx = (searchText.upper[i + 2] == TextBytes.tilde && i + 3 < searchText.length && (searchText.upper[i + 3] == TextBytes.questionMark || searchText.upper[i + 3] == TextBytes.asterisk)) ? i + 3 : i + 2;
+                                    var idx = (nextNextChar == TextBytes.tilde && i + 3 < searchText.length && (searchText.upper[i + 3] == TextBytes.questionMark || searchText.upper[i + 3] == TextBytes.asterisk)) ? i + 3 : i + 2;
                                     newState.lowerTrigger = searchText.lower[idx];
                                     newState.upperTrigger = searchText.upper[idx];
                                 }

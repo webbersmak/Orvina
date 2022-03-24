@@ -5,28 +5,13 @@ namespace Orvina.Console
 {
     internal class App
     {
-        private readonly Dictionary<int, string> fileMap = new();
+        private readonly List<FileResult> searchResults = new();
         private readonly AppState state;
-
         private readonly Stopwatch stopwatch = new();
-
         private bool attemptQuit;
-
-        private string[] fileExtensions;
-
-        private int fileId;
-        private bool includeSubdirectories;
-
+        private CommandArgs cmdArgs = new();
         private int searchCount = 0;
         private bool searchEnded;
-
-        private string searchPath;
-
-        private string searchText;
-
-        private bool showErrors;
-        private bool showHidden;
-        private bool showProgress;
 
         public App(string[] args)
         {
@@ -51,6 +36,7 @@ namespace Orvina.Console
                     WriteLine("     <search text>   Declares the text to search for in the files.");
                     WriteLine("                     Wildcards * and ? are supported.");
                     WriteLine("     <file extensions>   Comma separated list of file extensions. Restricts searching to specific file types.");
+                    WriteLine("     -cases              Search text is case sensitive.");
                     WriteLine("     -progress           Show the current path or file being scanned.");
                     WriteLine("     -nosub              Do not search subdirectories in the search path.");
                     WriteLine("     -debug              Show error messages.");
@@ -91,13 +77,13 @@ namespace Orvina.Console
         {
             using (var search = new SearchEngine())
             {
-                if (showErrors)
+                if (cmdArgs.showErrors)
                 {
                     search.OnError += Search_OnError;
                 }
                 search.OnFileFound += Search_OnFileFound;
                 search.OnSearchComplete += Search_OnSearchComplete;
-                if (showProgress)
+                if (cmdArgs.showProgress)
                 {
                     search.OnProgress += Search_OnProgress;
                 }
@@ -106,7 +92,12 @@ namespace Orvina.Console
 
                 try
                 {
-                    search.Start(searchPath, includeSubdirectories, searchText, showHidden, fileExtensions);
+                    search.Start(cmdArgs.searchPath,
+                        cmdArgs.includeSubdirectories,
+                        cmdArgs.searchText,
+                        cmdArgs.showHidden,
+                        cmdArgs.caseSensitive,
+                        cmdArgs.fileExtensions);
                 }
                 catch (Exception e)
                 {
@@ -128,7 +119,7 @@ namespace Orvina.Console
                     }
                 }
 
-                var sawAFile = fileId > 0;
+                var sawAFile = searchResults.Count > 0;
                 while (!attemptQuit && sawAFile)
                 {
                     WriteLine("Open File? Enter Id or 'q' to quit: ");
@@ -142,9 +133,9 @@ namespace Orvina.Console
                         var fileOpened = false;
                         if (int.TryParse(fileId, out int result))
                         {
-                            if (fileMap.ContainsKey(result))
+                            if (result - 1 < searchResults.Count)
                             {
-                                var file = fileMap[result];
+                                var file = searchResults[result - 1].file;
 
                                 WriteLine($"Opening {file}...\n");
                                 try
@@ -156,7 +147,7 @@ namespace Orvina.Console
                                 }
                                 catch (Exception e)
                                 {
-                                    if (showErrors)
+                                    if (cmdArgs.showErrors)
                                     {
                                         WriteLine(e.ToString());
                                     }
@@ -183,9 +174,35 @@ namespace Orvina.Console
             }
         }
 
-        private void PrintFileFound(string file)
+        private void OutputResults()
         {
-            if (this.showProgress)
+            for (var i = 0; i < searchResults.Count; i++)
+            {
+                PrintFileFound(searchResults[i].file, i + 1);
+
+                //Print Line Data
+                foreach (var lineResult in searchResults[i].lineResults)
+                {
+                    if (attemptQuit)
+                        return;
+
+                    SetColor(ConsoleColor.Yellow);
+                    System.Console.Write($"({lineResult.LineNumber}) ");
+
+                    foreach (var linePart in lineResult.LineParts)
+                    {
+                        SetColor(linePart.IsMatch ? ConsoleColor.DarkCyan : ConsoleColor.Yellow);
+                        System.Console.Write(linePart.Text);
+                    }
+
+                    System.Console.WriteLine();
+                }
+            }
+        }
+
+        private void PrintFileFound(string file, int fileId)
+        {
+            if (cmdArgs.showProgress)
                 PrintWipe("");
 
             var fileSpan = file.AsSpan();
@@ -218,18 +235,14 @@ namespace Orvina.Console
                 }
                 else
                 {
-                    var nosubFlag = args.Any(a => a == "-nosub" || a == "/nosub");
-                    var debugFlag = args.Any(a => a == "-debug" || a == "/debug");
-                    var progressFlag = args.Any(a => a == "-progress" || a == "/progress");
-                    var hiddenFlag = args.Any(a => a == "-hidden" || a == "/hidden");
-
-                    searchPath = args[0];
-                    searchText = args[1];
-                    fileExtensions = args[2].Split(',');
-                    includeSubdirectories = !nosubFlag;
-                    showErrors = debugFlag;
-                    showProgress = progressFlag;
-                    showHidden = hiddenFlag;
+                    cmdArgs.searchPath = args[0];
+                    cmdArgs.searchText = args[1];
+                    cmdArgs.fileExtensions = args[2].Split(',');
+                    cmdArgs.includeSubdirectories = !args.Any(a => a == "-nosub" || a == "/nosub");
+                    cmdArgs.showErrors = args.Any(a => a == "-debug" || a == "/debug");
+                    cmdArgs.showProgress = args.Any(a => a == "-progress" || a == "/progress");
+                    cmdArgs.showHidden = args.Any(a => a == "-hidden" || a == "/hidden");
+                    cmdArgs.caseSensitive = args.Any(a => a == "-cases" || a == "/cases");
                     return AppState.Run;
                 }
             }
@@ -242,9 +255,9 @@ namespace Orvina.Console
 
         private void Search_OnError(string error)
         {
-            if (showErrors)
+            if (cmdArgs.showErrors)
             {
-                if (showProgress)
+                if (cmdArgs.showProgress)
                     PrintWipe("");
 
                 SetColor(ConsoleColor.Red);
@@ -254,26 +267,7 @@ namespace Orvina.Console
 
         private void Search_OnFileFound(string file, List<SearchEngine.LineResult> matchingLines)
         {
-            fileMap.Add(++fileId, file);
-            PrintFileFound(file);
-
-            //Print Line Data
-            for (var i= 0; i < matchingLines.Count; i++)
-            {
-                if (attemptQuit)
-                    return;
-
-                SetColor(ConsoleColor.Yellow);
-                System.Console.Write($"({matchingLines[i].LineNumber}) ");
-
-                for (var j = 0; j < matchingLines[i].LineParts.Count; j++)
-                {
-                    SetColor(matchingLines[i].LineParts[j].IsMatch ? ConsoleColor.DarkCyan : ConsoleColor.Yellow);
-                    System.Console.Write(matchingLines[i].LineParts[j].Text);                    
-                }
-
-                System.Console.WriteLine();
-            }
+            searchResults.Add(new FileResult { file = file, lineResults = matchingLines });
         }
 
         private void Search_OnProgress(string filePath, bool isFile)
@@ -289,17 +283,38 @@ namespace Orvina.Console
 
         private void Search_OnSearchComplete()
         {
-            if (showProgress)
-                PrintWipe("");
             stopwatch.Stop();
-            SetColor(ConsoleColor.Gray);
-            WriteLine($"\nSearch Complete in {Math.Round(stopwatch.Elapsed.TotalSeconds, 2)}s!\n");
+            OutputResults();
             searchEnded = true;
 
-            if (showProgress)
+            if (cmdArgs.showProgress)
+                PrintWipe("");
+
+            SetColor(ConsoleColor.Gray);
+            WriteLine($"\nSearch Complete in {Math.Round(stopwatch.Elapsed.TotalSeconds, 2)}s!\n");
+
+            if (cmdArgs.showProgress)
             {
                 WriteLine($"\nSearched {searchCount} files\n");
             }
+        }
+
+        private struct CommandArgs
+        {
+            public bool caseSensitive;
+            public string[] fileExtensions;
+            public bool includeSubdirectories;
+            public string searchPath;
+            public string searchText;
+            public bool showErrors;
+            public bool showHidden;
+            public bool showProgress;
+        }
+
+        private struct FileResult
+        {
+            public string file;
+            public List<SearchEngine.LineResult> lineResults;
         }
     }
 }

@@ -21,7 +21,7 @@
 
             public readonly bool hasStarWildCard = false;
 
-            public SearchText(string text)
+            public SearchText(string text, bool caseSensitive = false)
             {
                 if (text[0] == starChar || (text[text.Length - 1] == starChar && (text.Length == 1 || text[text.Length - 2] != tildeChar)))
                     throw new Exception("search cannot start or end with * wildcard");
@@ -35,8 +35,15 @@
                     }
                 }
 
-                upper = System.Text.Encoding.UTF8.GetBytes(text.ToUpper());
-                lower = System.Text.Encoding.UTF8.GetBytes(text.ToLower());
+                if (caseSensitive)
+                {
+                    upper = lower = System.Text.Encoding.UTF8.GetBytes(text);
+                }
+                else
+                {
+                    upper = System.Text.Encoding.UTF8.GetBytes(text.ToUpper());
+                    lower = System.Text.Encoding.UTF8.GetBytes(text.ToLower());
+                }
                 maxIdx = upper.Length - 1;
                 length = upper.Length;
             }
