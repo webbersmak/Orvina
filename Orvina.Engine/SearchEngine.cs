@@ -29,6 +29,9 @@ namespace Orvina.Engine
         private int totalQueueCount;
         private SpinLock tractorLock = new();
 
+        private SpinLock eventLock = new();
+        private SpinLock endLock = new();
+
         /// <summary>
         /// returns error message
         /// </summary>
@@ -74,7 +77,7 @@ namespace Orvina.Engine
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
         {
-            Start(searchPath, includeSubirectories, searchText, false, false, fileExtensions);
+            Start(searchPath, includeSubirectories, searchText, false, false, false, fileExtensions);
         }
 
         /// <summary>
@@ -86,7 +89,7 @@ namespace Orvina.Engine
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
         /// <param name="includeHidden">true or false</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
-        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, bool caseSensitive, params string[] fileExtensions)
+        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, bool caseSensitive, bool slowMode, params string[] fileExtensions)
         {
             if (tasks.Any() && tasks.Any(t => !t.IsCompletedSuccessfully))
             {
@@ -99,14 +102,14 @@ namespace Orvina.Engine
                 Dispose();
             }
 
-            this.fileScanner.stop = stop = false;
+            fileScanner.stop = stop = false;
 
             includeSubdirectories = includeSubirectories;
             eo.AttributesToSkip = includeHidden ? FileAttributes.System : (FileAttributes.System | FileAttributes.Hidden);
 
             fileTractor = new();
 
-            this.fileScanner.searchText = new(searchText, caseSensitive);
+            fileScanner.searchText = new(searchText, caseSensitive);
 
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
@@ -120,7 +123,7 @@ namespace Orvina.Engine
 
             //search threads
             var factory = new TaskFactory();
-            var threadTotal = Environment.ProcessorCount;
+            var threadTotal = slowMode ? 1 : Environment.ProcessorCount;
             for (var i = 0; i < threadTotal; i++)
             {
                 runnerList.Add(i, new SimpleQueue<string>());
@@ -145,7 +148,7 @@ namespace Orvina.Engine
 
         private void HandleEvent(Event e)
         {
-            lock (this)
+            LockHelper.RunLock(ref eventLock, () =>
             {
                 switch (e.EventType)
                 {
@@ -167,7 +170,7 @@ namespace Orvina.Engine
                         OnError.Invoke(((OnErrorEvent)e).Error);
                         break;
                 }
-            }
+            });
         }
 
         private void MultiSearch(int runnerId)
@@ -219,13 +222,13 @@ namespace Orvina.Engine
 
             void TryNotifySearchEnded()
             {
-                lock (tasks)
+                LockHelper.RunLock(ref endLock, () =>
                 {
                     if (++finishedTasks == tasks.Count)
                     {
                         HandleEvent(new OnSearchCompleteEvent());
                     }
-                }
+                });
             }
 
             TryNotifySearchEnded();

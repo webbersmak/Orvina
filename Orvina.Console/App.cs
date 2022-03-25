@@ -34,13 +34,14 @@ namespace Orvina.Console
                     WriteLine("orvina <search path> <search text> <file extensions> [-nosub]\n");
                     WriteLine("     <search path>   Specifies the directory to search");
                     WriteLine("     <search text>   Declares the text to search for in the files.");
-                    WriteLine("                     Wildcards * and ? are supported.");
+                    WriteLine("                     Wildcards * and ? are supported. Use ~? or ~* to search for those characters.");
                     WriteLine("     <file extensions>   Comma separated list of file extensions. Restricts searching to specific file types.");
                     WriteLine("     -cases              Search text is case sensitive.");
                     WriteLine("     -progress           Show the current path or file being scanned.");
                     WriteLine("     -nosub              Do not search subdirectories in the search path.");
                     WriteLine("     -debug              Show error messages.");
                     WriteLine("     -hidden             Search hidden directories.");
+                    WriteLine("     -slow               Single thread mode. Can be useful for older, mechanical hdds.");
                     WriteLine("");
                     WriteLine("Example:\n");
                     WriteLine("orvina.exe \"C:\\my files\" \"return 1\"  \".cs,.js\"\n");
@@ -97,6 +98,7 @@ namespace Orvina.Console
                         cmdArgs.searchText,
                         cmdArgs.showHidden,
                         cmdArgs.caseSensitive,
+                        cmdArgs.slowmode,
                         cmdArgs.fileExtensions);
                 }
                 catch (Exception e)
@@ -243,6 +245,7 @@ namespace Orvina.Console
                     cmdArgs.showProgress = args.Any(a => a == "-progress" || a == "/progress");
                     cmdArgs.showHidden = args.Any(a => a == "-hidden" || a == "/hidden");
                     cmdArgs.caseSensitive = args.Any(a => a == "-cases" || a == "/cases");
+                    cmdArgs.slowmode = args.Any(a => a == "-slow" || a == "/slow");
                     return AppState.Run;
                 }
             }
@@ -309,6 +312,7 @@ namespace Orvina.Console
             public bool showErrors;
             public bool showHidden;
             public bool showProgress;
+            public bool slowmode;
         }
 
         private struct FileResult

@@ -12,8 +12,8 @@
     <PackageTags>search;.NET6;grep;text;query;index;</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReleaseNotes>Massive performance increases over previous versions of Orvina. Bug fixes.</PackageReleaseNotes>
-    <Version>1.5.0</Version>
+    <PackageReleaseNotes>Added support for "*" and "?" wildcards. Performance improvements &amp; bug fixes.</PackageReleaseNotes>
+    <Version>1.6.0</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
