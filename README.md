@@ -8,7 +8,7 @@ Text search allows for basic wildcards like " \* " (0 or more characters) and " 
 This repository contains 2 projects: 
 
 1. **Orvina.Console**
-    - Console Application
+    - Console Application [Download Exe](https://github.com/webbersmak/Orvina/releases)
     - Builds the application for searching files for text
     - The output will list the files containing the search text and show the lines of the file containing the search text 
     - Example usage:
