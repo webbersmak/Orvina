@@ -12,7 +12,7 @@
     <PackageTags>search;.NET6;grep;text;query;index;</PackageTags>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageReleaseNotes>Added support for "*" and "?" wildcards. Performance improvements &amp; bug fixes.</PackageReleaseNotes>
+    <PackageReleaseNotes>Added support for "*" and "?" wildcards. Added support for case-sensitivity. Performance improvements &amp; bug fixes.</PackageReleaseNotes>
     <Version>1.6.0</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
