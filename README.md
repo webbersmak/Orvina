@@ -2,7 +2,8 @@
 
 ## Introduction
 
-This is a high performance text search utility written in C#/.NET 6. Speed, ease of use, and robustness were all accounted for in the development of Orvina. The current version of Orvina does not support Regular Expressions and by default, only searches for matching text strings (case-insensitive). 
+This is a high performance text search utility written in C#/.NET 6. Speed, ease of use, and robustness were all accounted for in the development of Orvina.
+Text search allows for basic wildcards like "\*" (0 or more characters) and "\?" (any character). Case sensitivity can be enabled with "-cases" parameter.
 
 This repository contains 2 projects: 
 
