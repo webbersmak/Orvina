@@ -3,7 +3,7 @@
 ## Introduction
 
 This is a high performance text search utility written in C#/.NET 6. Speed, ease of use, and robustness were all accounted for in the development of Orvina.
-Text search allows for basic wildcards like "\*" (0 or more characters) and "\?" (any character). Case sensitivity can be enabled with "-cases" parameter.
+Text search allows for basic wildcards like " \* " (0 or more characters) and " \? " (any character). Case sensitivity can be enabled with "-cases" parameter.
 
 This repository contains 2 projects: 
 
