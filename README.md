@@ -20,7 +20,7 @@ This repository contains 2 projects:
     
     ![orvina_finished.png](/orvina_finished.png)
 
-    6. Wildcards "?" and "*" are supported. So "p?n" will match "pen" and "pin". And "b*d" will match "bind" and "bound".
+    6. Wildcards "\?" and "\*" are supported. So "p?n" will match "pen" and "pin". And "b\*d" will match "bind" and "bound".
 
 2. **Orvina.Engine**
     - Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
