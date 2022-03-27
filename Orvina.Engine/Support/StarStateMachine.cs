@@ -2,19 +2,24 @@
 {
     internal class StarStateMachine
     {
-        private List<State> allStates;
+        private readonly List<State> allStates;
+
+        public StarStateMachine(TextBytes.SearchText searchText)
+        {
+            allStates = BuildMachine(searchText);
+        }
 
         public int IndexOf(ReadOnlySpan<byte> input, TextBytes.SearchText searchText, out int endIdx, int startIdx = 0)
         {
             endIdx = 0;
             for (var i = startIdx; i < input.Length; i++)
             {
-                if (searchText.upper[0] != input[i] && searchText.lower[0] != input[i])
-                {
-                    continue;
-                }
+                var runMachine = searchText.upper[0] == TextBytes.questionMark
+                    || (input[i] == TextBytes.questionMark && searchText.upper[0] == TextBytes.tilde && searchText.maxIdx > 0 && searchText.upper[1] == TextBytes.questionMark)
+                    || (input[i] == TextBytes.asterisk && searchText.upper[0] == TextBytes.tilde && searchText.maxIdx > 0 && searchText.upper[1] == TextBytes.asterisk)
+                    || (searchText.upper[0] == input[i] || searchText.lower[0] == input[i]);
 
-                if (Match(input.Slice(i, input.Length - i), searchText, out endIdx))
+                if (runMachine && Match(input.Slice(i, input.Length - i), out endIdx))
                 {
                     endIdx = i + endIdx + 1;
                     return i;
@@ -34,11 +39,11 @@
         /// "??xxT?123k**" matches "~?~?xx?~?*k~*~*"
         /// </summary>
         /// <param name="input"></param>
-        /// <param name="searchText"></param>
         /// <returns></returns>
-        public bool Match(ReadOnlySpan<byte> input, TextBytes.SearchText searchText, out int endIdx)
+        public bool Match(ReadOnlySpan<byte> input, out int endIdx)
         {
-            allStates = BuildMachine(searchText);
+            allStates.ForEach(state => state.fail = false);
+
             endIdx = 0;
             var next = allStates[0];
 
@@ -79,7 +84,7 @@
             switch (searchText.upper[0])
             {
                 case TextBytes.tilde:
-                    if (searchText.length >= 2 && (searchText.upper[1] == TextBytes.questionMark || searchText.upper[1] == TextBytes.asterisk))
+                    if (searchText.maxIdx > 0 && (searchText.upper[1] == TextBytes.questionMark || searchText.upper[1] == TextBytes.asterisk))
                     {
                         //tilde followed by ? or *
                         initialState.upperTrigger = initialState.lowerTrigger = searchText.upper[1];
@@ -118,12 +123,12 @@
             }
 
             //create the initial state
-            var states = new List<State>(searchText.length)
+            var states = new List<State>(searchText.maxIdx)
             {
                 initialState
             };
 
-            for (var i = 0; i < searchText.length; i++)
+            for (var i = 0; i <= searchText.maxIdx; i++)
             {
                 if (searchText.upper[i] != TextBytes.asterisk || (searchText.upper[i] == TextBytes.asterisk && i > 0 && searchText.upper[i - 1] == TextBytes.tilde))
                 {
@@ -132,7 +137,7 @@
                         nextId = states.Count + 1
                     };
 
-                    var hasNext = i + 1 < searchText.length;
+                    var hasNext = i + 1 <= searchText.maxIdx;
 
                     if (hasNext)
                     {
@@ -142,7 +147,7 @@
                         if (nextChar == TextBytes.tilde)
                         {
                             //tildes dont' matter except if followed by a * or ?
-                            var hasCharAfterTilde = i + 2 < searchText.length;
+                            var hasCharAfterTilde = i + 2 <= searchText.maxIdx;
                             if (hasCharAfterTilde)
                             {
                                 var nextNextChar = searchText.upper[i + 2];
@@ -174,7 +179,7 @@
 
                                 //if star is at the end it might mean there is no trigger...!
                                 bool hasCharAfterStar;
-                                while ((hasCharAfterStar = i + 2 < searchText.length) && searchText.upper[i + 2] == TextBytes.asterisk)
+                                while ((hasCharAfterStar = i + 2 <= searchText.maxIdx) && searchText.upper[i + 2] == TextBytes.asterisk)
                                     i++;
 
                                 if (hasCharAfterStar)
@@ -187,7 +192,7 @@
                                     }
 
                                     //if the next character is a ~ and is followed by ? or *, then use that for trigger
-                                    var idx = (nextNextChar == TextBytes.tilde && i + 3 < searchText.length && (searchText.upper[i + 3] == TextBytes.questionMark || searchText.upper[i + 3] == TextBytes.asterisk)) ? i + 3 : i + 2;
+                                    var idx = (nextNextChar == TextBytes.tilde && i + 3 <= searchText.maxIdx && (searchText.upper[i + 3] == TextBytes.questionMark || searchText.upper[i + 3] == TextBytes.asterisk)) ? i + 3 : i + 2;
                                     newState.lowerTrigger = searchText.lower[idx];
                                     newState.upperTrigger = searchText.upper[idx];
                                 }
@@ -224,7 +229,7 @@
 
         private State ProcessState(State state, byte nextChar)
         {
-            if (state.lowerTrigger == nextChar || state.upperTrigger == nextChar || state.acceptAny)
+            if (state.lowerTrigger == nextChar || state.upperTrigger == nextChar || (state.acceptAny && nextChar != TextBytes.newLine && nextChar != TextBytes.carriageReturn))
             {
                 return allStates[state.nextId];
             }

@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Text;
-using System.Threading.Tasks;
 using static Orvina.Engine.SearchEngine;
 
 [assembly: InternalsVisibleTo("UnitTests")]
@@ -36,7 +32,7 @@ namespace Orvina.Engine.Support
             {
                 //newLines chars on left and right
                 var lineStartIdx = TextBytes.LeftNewLineIndex(data, searchTextIdx);
-                var lineEndIdx = TextBytes.RightNewLineIndex(data, (searchTextIdx + searchText.length) + 1);
+                var lineEndIdx = TextBytes.RightNewLineIndex(data, (searchTextIdx + searchText.matchCount) + 1);
                 lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : 0;
                 lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : endFileIdx;
 
@@ -45,7 +41,7 @@ namespace Orvina.Engine.Support
                 var lineResult = new LineResult(TextBytes.CountLines(data, lineStartIdx));
 
                 var matchStartIdx = searchTextIdx - lineStartIdx;
-                var matchEndIdx = matchStartIdx + searchText.length;
+                var matchEndIdx = matchStartIdx + searchText.matchCount;
                 if (matchStartIdx == 0)
                 {
                     lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx, matchEndIdx)), true));
@@ -53,13 +49,13 @@ namespace Orvina.Engine.Support
                 else
                 {
                     lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx, matchStartIdx)), false));
-                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx + (matchStartIdx), searchText.length)), true));
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx + (matchStartIdx), searchText.matchCount)), true));
                 }
 
 
                 //secondary instances in the line
                 var prevIdx = (lineStartIdx + (matchStartIdx)) + (matchEndIdx - (matchStartIdx));
-                while ((searchTextIdx = TextBytes.IndexOf(data, searchText, (searchTextIdx + searchText.length), lineEndIdx)) >= 0 && !stop)
+                while ((searchTextIdx = TextBytes.IndexOf(data, searchText, (searchTextIdx + searchText.matchCount), lineEndIdx)) >= 0 && !stop)
                 {
                     if (prevIdx < searchTextIdx)
                     {
@@ -68,11 +64,11 @@ namespace Orvina.Engine.Support
                     }
 
                     //house
-                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(searchTextIdx, searchText.length)), true));
-                    prevIdx = searchTextIdx + searchText.length;
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(searchTextIdx, searchText.matchCount)), true));
+                    prevIdx = searchTextIdx + searchText.matchCount;
                 }
 
-                if (prevIdx < lineEndIdx)
+                if (prevIdx <= lineEndIdx)
                 {
                     lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(prevIdx, lineEndIdx - prevIdx+1)), false));
                 }
@@ -88,7 +84,7 @@ namespace Orvina.Engine.Support
         private List<LineResult> ScanFileStar(ReadOnlySpan<byte> data)
         {
             var matchingLines = new List<LineResult>();
-            var fsm = new StarStateMachine();
+            var fsm = new StarStateMachine(searchText);
 
             var lastNewline = -1;
             var lastIdx = data.Length - 1;
