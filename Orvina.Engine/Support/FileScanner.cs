@@ -32,7 +32,7 @@ namespace Orvina.Engine.Support
             {
                 //newLines chars on left and right
                 var lineStartIdx = TextBytes.LeftNewLineIndex(data, searchTextIdx);
-                var lineEndIdx = TextBytes.RightNewLineIndex(data, (searchTextIdx + searchText.matchCount) + 1);
+                var lineEndIdx = TextBytes.RightNewLineIndex(data, (searchTextIdx + searchText.matchCount) );
                 lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : 0;
                 lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : endFileIdx;
 
@@ -51,7 +51,6 @@ namespace Orvina.Engine.Support
                     lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx, matchStartIdx)), false));
                     lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(lineStartIdx + (matchStartIdx), searchText.matchCount)), true));
                 }
-
 
                 //secondary instances in the line
                 var prevIdx = (lineStartIdx + (matchStartIdx)) + (matchEndIdx - (matchStartIdx));
@@ -91,8 +90,11 @@ namespace Orvina.Engine.Support
             var lineCount = 0;
             for (var i = 0; i < data.Length && !stop; i++)
             {
-                if (data[i] == TextBytes.newLine || i == lastIdx)
+                if ((data[i] == TextBytes.newLine || data[i] == TextBytes.carriageReturn) || i == lastIdx)
                 {
+                    if (i != lastIdx)
+                        i++;
+
                     lineCount++;
                     if (i > lastNewline)
                     {
@@ -133,7 +135,7 @@ namespace Orvina.Engine.Support
 
                             if (prevIdx < lineData.Length - 1)
                             {
-                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(lineData.Slice(prevIdx, lineData.Length - prevIdx)), false));
+                                lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(TextBytes.TrimBytes(lineData.Slice(prevIdx, lineData.Length - prevIdx))), false));
                             }
 
                             matchingLines.Add(lineResult);

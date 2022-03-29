@@ -75,37 +75,6 @@ namespace TestProject1
             return text.Slice(i, j - i + 1);
         }
 
-        private static ReadOnlySpan<byte> TrimBytes(ReadOnlySpan<byte> data)
-        {
-            if (data.Length == 0)
-                return data;
-
-            if (data.Length == 1)
-            {
-                return (data[0] == '\n' || data[0] == '\r') ? data.Slice(0, 0) : data;
-            }
-
-            //all texts 2 or longer
-            int i;
-            for (i = 0; i < data.Length; i++)
-            {
-                if (data[i] != '\n' && data[i] != '\r')
-                {
-                    break;
-                }
-            }
-
-            int j;
-            for (j = data.Length - 1; j >= 0; j--)
-            {
-                if (data[j] != '\n' && data[j] != '\r')
-                {
-                    break;
-                }
-            }
-
-            return data.Slice(i, j - i + 1);
-        }
 
         [TestMethod]
         public void VerifyWildcard_QuestionMark()

@@ -65,6 +65,39 @@
             return count;
         }
 
+        public static ReadOnlySpan<byte> TrimBytes(ReadOnlySpan<byte> data)
+        {
+            if (data.Length == 0)
+                return data;
+
+            if (data.Length == 1)
+            {
+                return (data[0] == newLine || data[0] == carriageReturn) ? data.Slice(0, 0) : data;
+            }
+
+            //all texts 2 or longer
+            int i;
+            for (i = 0; i < data.Length; i++)
+            {
+                if (data[i] != newLine && data[i] != carriageReturn)
+                {
+                    break;
+                }
+            }
+
+            int j;
+            for (j = data.Length - 1; j >= 0; j--)
+            {
+                if (data[j] != newLine && data[j] != carriageReturn)
+                {
+                    break;
+                }
+            }
+
+            return data.Slice(i, j - i + 1);
+        }
+
+
         /// <summary>
         /// searchText can have uppercase, lowercase, ? wildcard only
         /// </summary>
