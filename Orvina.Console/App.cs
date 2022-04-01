@@ -41,6 +41,7 @@ namespace Orvina.Console
                     WriteLine("     -nosub              Do not search subdirectories in the search path.");
                     WriteLine("     -debug              Show error messages.");
                     WriteLine("     -hidden             Search hidden directories.");
+                    WriteLine("     -noopen             Suppress asking to open a file on completion.");
                     WriteLine("     -slow               Single thread mode. Can be useful for older, mechanical hdds.");
                     WriteLine("");
                     WriteLine("Example:\n");
@@ -98,7 +99,7 @@ namespace Orvina.Console
                         cmdArgs.searchText,
                         cmdArgs.showHidden,
                         cmdArgs.caseSensitive,
-                        cmdArgs.slowmode,
+                        cmdArgs.slowMode,
                         cmdArgs.fileExtensions);
                 }
                 catch (Exception e)
@@ -121,8 +122,7 @@ namespace Orvina.Console
                     }
                 }
 
-                var sawAFile = searchResults.Count > 0;
-                while (!attemptQuit && sawAFile)
+                while (!attemptQuit && searchResults.Count > 0 && !cmdArgs.noOpen)
                 {
                     WriteLine("Open File? Enter Id or 'q' to quit: ");
 
@@ -216,8 +216,15 @@ namespace Orvina.Console
             System.Console.Write($"\nFound: {prefix}");
             SetColor(ConsoleColor.Red);
             System.Console.Write(fileName);
-            SetColor(ConsoleColor.DarkGray);
-            WriteLine($"({fileId})");
+
+            if (cmdArgs.noOpen) {
+                WriteLine("");
+            }
+            else
+            {
+                SetColor(ConsoleColor.DarkGray);
+                WriteLine($"({fileId})");
+            }
         }
 
         private AppState ProcessArgs(string[] args)
@@ -245,7 +252,8 @@ namespace Orvina.Console
                     cmdArgs.showProgress = args.Any(a => a == "-progress" || a == "/progress");
                     cmdArgs.showHidden = args.Any(a => a == "-hidden" || a == "/hidden");
                     cmdArgs.caseSensitive = args.Any(a => a == "-cases" || a == "/cases");
-                    cmdArgs.slowmode = args.Any(a => a == "-slow" || a == "/slow");
+                    cmdArgs.slowMode = args.Any(a => a == "-slow" || a == "/slow");
+                    cmdArgs.noOpen = args.Any(a => a == "-noopen" || a == "/noopen");
                     return AppState.Run;
                 }
             }
@@ -288,7 +296,6 @@ namespace Orvina.Console
         {
             stopwatch.Stop();
             OutputResults();
-            searchEnded = true;
 
             if (cmdArgs.showProgress)
                 PrintWipe("");
@@ -300,6 +307,8 @@ namespace Orvina.Console
             {
                 WriteLine($"\nSearched {searchCount} files\n");
             }
+
+            searchEnded = true;
         }
 
         private struct CommandArgs
@@ -312,7 +321,8 @@ namespace Orvina.Console
             public bool showErrors;
             public bool showHidden;
             public bool showProgress;
-            public bool slowmode;
+            public bool slowMode;
+            public bool noOpen;
         }
 
         private struct FileResult
