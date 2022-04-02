@@ -11,6 +11,7 @@ This repository contains 2 projects:
     - Console Application - [Download Exe](https://github.com/webbersmak/Orvina/releases)
     - Builds the application for searching files for text
     - The output will list the files containing the search text and show the lines of the file containing the search text 
+    - use "orvina.exe -help" to see all options
     - Example usage:
     
     ```
