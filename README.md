@@ -17,11 +17,11 @@ This repository contains 2 projects:
     ```
     orvina.exe "C:\my files" "search text" .cs,.js
     ```
-    5. When the search completes, you may enter the (Id) of the file containing matching text to open it 
+    - When the search completes, you may enter the (Id) of the file containing matching text to open it 
     
     ![orvina_finished.png](/orvina_finished.png)
 
-    6. Wildcards "\?" and "\*" are supported. So "p?n" will match "pen" and "pin". And "b\*d" will match "bind" and "bound".
+    - Wildcards "\?" and "\*" are supported. So "p?n" will match "pen" and "pin". And "b\*d" will match "bind" and "bound".
 
 2. **Orvina.Engine**
     - Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
