@@ -42,8 +42,6 @@
         /// <returns></returns>
         public bool Match(ReadOnlySpan<byte> input, out int endIdx)
         {
-            allStates.ForEach(state => state.fail = false);
-
             endIdx = 0;
             var next = allStates[0];
 
@@ -55,6 +53,7 @@
                 next = ProcessState(next, input[i]);
                 if (next.fail)
                 {
+                    next.fail = false;
                     return false;
                 }
                 else if (next.endState)
@@ -249,12 +248,11 @@
             public bool acceptAny;
             public bool endState;
             public bool fail;
+            public byte lowerTrigger;
             public int nextId;
             public bool stayOnNot;
 
             public byte upperTrigger;
-            public byte lowerTrigger;
-
         }
     }
 }

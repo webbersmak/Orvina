@@ -11,8 +11,10 @@ namespace Orvina.Engine
         };
 
         private readonly FileScanner fileScanner = new();
-        private readonly Dictionary<int, SimpleQueue<string>> runnerList = new();
+        private readonly SimpleDictionary<SimpleQueue<string>> runnerList = new();
         private readonly List<Task> tasks = new();
+        private SpinLock endLock = new();
+        private SpinLock eventLock = new();
         private string[] fileExtensions;
         private int filesEnroute;
         private FileTractor fileTractor;
@@ -28,9 +30,6 @@ namespace Orvina.Engine
         private bool stop;
         private int totalQueueCount;
         private SpinLock tractorLock = new();
-
-        private SpinLock eventLock = new();
-        private SpinLock endLock = new();
 
         /// <summary>
         /// returns error message
@@ -122,18 +121,18 @@ namespace Orvina.Engine
             this.fileExtensions = fileExtensions;
 
             //search threads
-            var factory = new TaskFactory();
             var threadTotal = slowMode ? 1 : Environment.ProcessorCount;
-            for (var i = 0; i < threadTotal; i++)
+
+            int i;
+            totalQueueCount = 1;
+            for (i = 0; i < threadTotal; i++)
             {
-                runnerList.Add(i, new SimpleQueue<string>());
+                runnerList.Add(new SimpleQueue<string>());
             }
             runnerList[0].Enqueue(searchPath);
-            totalQueueCount = 1;
-
-            for (var runnerId = 0; runnerId < threadTotal; runnerId++)
+            for (i = 0; i < threadTotal; i++)
             {
-                tasks.Add(factory.StartNew((param) => MultiSearch((int)param), runnerId));
+                tasks.Add(Task.Factory.StartNew((param) => MultiSearch((int)param), i));
             }
         }
 
@@ -259,7 +258,7 @@ namespace Orvina.Engine
 
                         int targetQueueId = LockHelper.RunLock(ref runnerQueueIdLock, () =>
                         {
-                            runnerQueueId += runnerQueueId + 1 == runnerList.Count ? -runnerQueueId : 1;
+                            runnerQueueId += (runnerQueueId + 1 == runnerList.Count) ? -runnerQueueId : 1;
                             return runnerQueueId;
                         });
 
@@ -337,6 +336,18 @@ namespace Orvina.Engine
             }
         }
 
+        public struct LinePart
+        {
+            public bool IsMatch;
+            public string Text;
+
+            public LinePart(string text, bool isMatch)
+            {
+                Text = text;
+                IsMatch = isMatch;
+            }
+        }
+
         public struct LineResult
         {
             /// <summary>
@@ -352,19 +363,6 @@ namespace Orvina.Engine
             public LineResult(int lineNumber)
             {
                 LineNumber = lineNumber;
-            }
-        }
-
-
-        public struct LinePart
-        {
-            public string Text;
-            public bool IsMatch;
-
-            public LinePart(string text, bool isMatch)
-            {
-                Text = text;
-                IsMatch = isMatch;
             }
         }
 
