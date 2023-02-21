@@ -10,8 +10,7 @@
             try
             {
                 sw.Enter(ref locked);
-                var res = atomicAction(out T a);
-                b = a;
+                var res = atomicAction(out b);
                 return res;
             }
             finally

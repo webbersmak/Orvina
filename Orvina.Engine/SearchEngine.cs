@@ -24,9 +24,8 @@ namespace Orvina.Engine
         private bool raiseErrors;
         private bool raiseProgress;
 
+        private static readonly Random rand = new();
         private SpinLock runnerListLock = new();
-        private int runnerQueueId;
-        private SpinLock runnerQueueIdLock = new();
         private bool stop;
         private int totalQueueCount;
         private SpinLock tractorLock = new();
@@ -113,7 +112,6 @@ namespace Orvina.Engine
             raiseErrors = OnError != null;
             raiseProgress = OnProgress != null;
 
-            runnerQueueId = 0;
             stop = false;
             filesEnroute = 0;
             finishedTasks = 0;
@@ -256,11 +254,7 @@ namespace Orvina.Engine
                             totalQueueCount++;
                         });
 
-                        int targetQueueId = LockHelper.RunLock(ref runnerQueueIdLock, () =>
-                        {
-                            runnerQueueId += (runnerQueueId + 1 == runnerList.Count) ? -runnerQueueId : 1;
-                            return runnerQueueId;
-                        });
+                        int targetQueueId = rand.Next(0, runnerList.Count);
 
                         var target = runnerList[targetQueueId];
                         lock (target) //lock my list
