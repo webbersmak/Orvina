@@ -4,12 +4,7 @@
     {
         private int _count;
         private int currentIdx = -1;
-        private T[] nodes;
-
-        public SimpleDictionary(int size = 0)
-        {
-            nodes = new T[size];
-        }
+        private T[] nodes = Array.Empty<T>();
 
         public int Count
         {
@@ -46,29 +41,7 @@
         {
             _count = 0;
             currentIdx = -1;
-            for (var i = 0; i < nodes.Length; i++)
-            {
-                nodes[i] = default;
-            }
-        }
-
-        public void Remove(int key)
-        {
-            _count--;
-            nodes[key] = default;
-        }
-
-        /// <summary>
-        /// aka remove read
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
-        public T RemoveGet(int key)
-        {
-            _count--;
-            var temp = nodes[key];
-            nodes[key] = default;
-            return temp;
+            nodes = Array.Empty<T>();
         }
     }
 }

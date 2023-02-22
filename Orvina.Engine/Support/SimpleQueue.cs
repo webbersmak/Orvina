@@ -8,17 +8,16 @@
     {
         private int frontIdx;//[x][][]
         private int rearIdx;//[][][x]
-
         private T[] nodes;
 
-        public SimpleQueue(int size = 0)
+        public SimpleQueue()
         {
-            Reset(size);
+            Reset();
         }
 
-        public void Reset(int size = 0)
+        private void Reset()
         {
-            nodes = new T[size];
+            nodes = Array.Empty<T>();
             frontIdx = -1;
             rearIdx = -1;
         }

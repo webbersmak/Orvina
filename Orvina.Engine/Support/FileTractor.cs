@@ -40,10 +40,6 @@ namespace Orvina.Engine
                     fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
                 }
                 catch {
-                    lock (asyncReads)
-                    {
-                        asyncReads.Remove(callId);
-                    }
                     fs.Dispose();
                     throw;
                 }
@@ -85,7 +81,7 @@ namespace Orvina.Engine
             AsyncFile context;
             lock (asyncReads)//don't use spinlock here
             {
-                context = asyncReads.RemoveGet(callbackId);
+                context = asyncReads[callbackId];
             }
 
             LockHelper.RunLock(ref dataQLock, () =>
