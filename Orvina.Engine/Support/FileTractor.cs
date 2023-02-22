@@ -4,8 +4,8 @@ namespace Orvina.Engine
 {
     internal sealed class FileTractor : IDisposable
     {
-        private readonly SimpleDictionary<AsyncContext> asyncReads = new();
-        private readonly SimpleQueue<CompleteFile> dataQ = new();
+        private readonly SimpleDictionary<AsyncFile> asyncReads = new();
+        private readonly SimpleQueue<AsyncFile> dataQ = new();
 
         private readonly ManualResetEventSlim manualReset = new();
         private SpinLock dataQLock = new();
@@ -19,13 +19,15 @@ namespace Orvina.Engine
         {
             try
             {
-                var context = new AsyncContext() { fileName = file };
-
                 var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
                 var data = new byte[fs.Length];
 
-                context.stream = fs;
-                context.data = data;
+                var context = new AsyncFile
+                {
+                    fileName = file,
+                    stream = fs,
+                    data = data
+                };
 
                 int callId;
                 lock (asyncReads)
@@ -59,11 +61,11 @@ namespace Orvina.Engine
         /// </summary>
         /// <param name="file"></param>
         /// <returns></returns>
-        public bool TryGetFile(out CompleteFile file)
+        public bool TryGetFile(out AsyncFile file)
         {
             while (true)
             {
-                if (LockHelper.RunLock(ref dataQLock, (out CompleteFile file1) =>
+                if (LockHelper.RunLock(ref dataQLock, (out AsyncFile file1) =>
                 {
                     return dataQ.TryDequeue(out file1);
                 }, out file))
@@ -80,7 +82,7 @@ namespace Orvina.Engine
         {
             var callbackId = (int)ar.AsyncState;
 
-            AsyncContext context;
+            AsyncFile context;
             lock (asyncReads)//don't use spinlock here
             {
                 context = asyncReads.RemoveGet(callbackId);
@@ -88,20 +90,14 @@ namespace Orvina.Engine
 
             LockHelper.RunLock(ref dataQLock, () =>
             {
-                dataQ.Enqueue(new CompleteFile { data = context.data, fileName = context.fileName });
+                dataQ.Enqueue(context);
                 manualReset.Set();
             });
 
             context.stream.Dispose();
         }
 
-        public struct CompleteFile
-        {
-            public byte[] data;
-            public string fileName;
-        }
-
-        private struct AsyncContext
+        public struct AsyncFile
         {
             public byte[] data;
             public string fileName;
