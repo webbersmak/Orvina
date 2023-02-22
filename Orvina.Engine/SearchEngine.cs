@@ -210,7 +210,7 @@ namespace Orvina.Engine
 
                 if (waitingForFiles && !stop)
                 {
-                    if (fileTractor.TryGetFile(out FileTractor.CompleteFile nextFile))
+                    if (fileTractor.TryGetFile(out FileTractor.AsyncFile nextFile))
                     {
                         ScanFile(nextFile);
                     }
@@ -307,7 +307,7 @@ namespace Orvina.Engine
             }
         }
 
-        private void ScanFile(FileTractor.CompleteFile file)
+        private void ScanFile(FileTractor.AsyncFile file)
         {
             List<LineResult> matchingLines;
 
