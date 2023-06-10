@@ -2,16 +2,12 @@
 {
     internal sealed class SimpleDictionary<T>
     {
-        private int _count;
         private int currentIdx = -1;
         private T[] nodes = Array.Empty<T>();
 
         public int Count
         {
-            get
-            {
-                return _count;
-            }
+            get; private set;
         }
 
         public T this[int key]
@@ -24,7 +20,7 @@
 
         public int Add(T value)
         {
-            _count++;
+            Count++;
             var desiredIdx = currentIdx + 1; //on first enqueu will be 0
             if (desiredIdx > nodes.Length - 1) //need to grow
             {
@@ -39,7 +35,7 @@
 
         public void Clear()
         {
-            _count = 0;
+            Count = 0;
             currentIdx = -1;
             nodes = Array.Empty<T>();
         }

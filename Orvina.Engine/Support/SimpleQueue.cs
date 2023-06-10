@@ -7,25 +7,20 @@
     internal sealed class SimpleQueue<T>
     {
         private int frontIdx;//[x][][]
-        private int rearIdx;//[][][x]
         private T[] nodes;
+        private int rearIdx;//[][][x]
 
         public SimpleQueue()
         {
             Reset();
         }
 
-        private void Reset()
+        public bool Any
         {
-            nodes = Array.Empty<T>();
-            frontIdx = -1;
-            rearIdx = -1;
-        }
-
-        public void Clear()
-        {
-            frontIdx = -1;
-            rearIdx = -1;
+            get
+            {
+                return Count > 0;
+            }
         }
 
         //public T[] ToArray
@@ -37,21 +32,16 @@
         //        return temp;
         //    }
         //}
-
-        public bool Any
-        {
-            get
-            {
-                return Count > 0;
-            }
-        }
-
         public int Count
         {
-            get
-            {
-                return rearIdx < 0 ? 0 : rearIdx - frontIdx + 1;//[2][3][4]
-            }
+            get; private set;
+        }
+
+        public void Clear()
+        {
+            frontIdx = -1;
+            rearIdx = -1;
+            UpdateCount();
         }
 
         public T Dequeue()
@@ -67,6 +57,7 @@
             else
             {
                 frontIdx = desiredIdx;
+                UpdateCount();
             }
             //if (desiredIdx < (nodes.Length - 1) / 2) //need to shrink
             //{
@@ -92,6 +83,8 @@
             {
                 frontIdx = rearIdx;
             }
+
+            UpdateCount();
         }
 
         public bool TryDequeue(out T value)
@@ -104,6 +97,19 @@
 
             value = default;
             return false;
+        }
+
+        private void Reset()
+        {
+            nodes = Array.Empty<T>();
+            frontIdx = -1;
+            rearIdx = -1;
+            UpdateCount();
+        }
+
+        private void UpdateCount()
+        {
+            Count = rearIdx < 0 ? 0 : rearIdx - frontIdx + 1;
         }
     }
 }

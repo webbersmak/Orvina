@@ -24,7 +24,6 @@ namespace Orvina.Engine
         private bool raiseErrors;
         private bool raiseProgress;
 
-        private static readonly Random rand = new();
         private SpinLock runnerListLock = new();
         private bool stop;
         private int totalQueueCount;
@@ -185,7 +184,7 @@ namespace Orvina.Engine
 
                 if (gotItem)
                 {
-                    MultiSearchInner(path);
+                    MultiSearchInner(path, runnerId);
                     LockHelper.RunLock(ref runnerListLock, () =>
                     {
                         totalQueueCount--;
@@ -231,21 +230,20 @@ namespace Orvina.Engine
             TryNotifySearchEnded();
         }
 
-        private void MultiSearchInner(string path)
+        private void MultiSearchInner(string path, int runnerId)
         {
             if (raiseProgress)
             {
                 HandleEvent(new OnProgressEvent(path, false));
             }
 
-            int i;
-            FileEntry[] pathEntries;
+            List<FileEntry> pathEntries;
 
             try
             {
-                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry(entry.ToFullPath(), entry.IsDirectory), eo).ToArray();
+                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry(entry.ToFullPath(), entry.IsDirectory), eo).ToList();
 
-                for (i = 0; i < pathEntries.Length && includeSubdirectories; i++)
+                for (var i = 0; i < pathEntries.Count && includeSubdirectories; i++)
                 {
                     if (pathEntries[i].IsDirectory)
                     {
@@ -254,7 +252,7 @@ namespace Orvina.Engine
                             totalQueueCount++;
                         });
 
-                        int targetQueueId = rand.Next(0, runnerList.Count);
+                        int targetQueueId = runnerId + 1 < runnerList.Count ? runnerId + 1 : 0;
 
                         var target = runnerList[targetQueueId];
                         lock (target) //lock my list
@@ -278,7 +276,7 @@ namespace Orvina.Engine
             {
                 for (var k = 0; k < fileExtensions.Length; k++)
                 {
-                    for (i = 0; i < pathEntries.Length; i++)
+                    for (var i = 0; i < pathEntries.Count; i++)
                     {
                         if (!pathEntries[i].IsDirectory && pathEntries[i].Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
                         {

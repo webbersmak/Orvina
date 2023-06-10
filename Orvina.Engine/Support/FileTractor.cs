@@ -41,10 +41,11 @@ namespace Orvina.Engine
                 }
                 catch {
                     fs.Dispose();
-                    throw;
+                    //throw;
+                    return false;
                 }
             }
-            catch (Exception ex)
+            catch
             {
                 return false;
             }
