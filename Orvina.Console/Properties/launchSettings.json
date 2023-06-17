@@ -2,7 +2,7 @@
   "profiles": {
     "Orvina.Console": {
       "commandName": "Project",
-      "commandLineArgs": "\"C:\\deleteme\" house .txt"
+      "commandLineArgs": "\"C:\\users\" \"chess\" \".txt\" \"-slow\""
     }
   }
 }
