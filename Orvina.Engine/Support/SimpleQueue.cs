@@ -34,14 +34,13 @@
         //}
         public int Count
         {
-            get; private set;
+            get { return rearIdx < 0 ? 0 : rearIdx - frontIdx + 1; }
         }
 
         public void Clear()
         {
             frontIdx = -1;
             rearIdx = -1;
-            UpdateCount();
         }
 
         public T Dequeue()
@@ -57,7 +56,6 @@
             else
             {
                 frontIdx = desiredIdx;
-                UpdateCount();
             }
             //if (desiredIdx < (nodes.Length - 1) / 2) //need to shrink
             //{
@@ -83,8 +81,6 @@
             {
                 frontIdx = rearIdx;
             }
-
-            UpdateCount();
         }
 
         public bool TryDequeue(out T value)
@@ -104,12 +100,7 @@
             nodes = Array.Empty<T>();
             frontIdx = -1;
             rearIdx = -1;
-            UpdateCount();
         }
 
-        private void UpdateCount()
-        {
-            Count = rearIdx < 0 ? 0 : rearIdx - frontIdx + 1;
-        }
     }
 }

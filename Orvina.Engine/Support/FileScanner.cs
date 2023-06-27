@@ -27,6 +27,9 @@ namespace Orvina.Engine.Support
             var searchTextIdx = 0;
             var endFileIdx = data.Length - 1;
 
+            var count = 1;
+            var lastIdx = 0;
+
             //found our word in the text
             while ((searchTextIdx = TextBytes.IndexOf(data, searchText, searchTextIdx)) >= 0 && !stop)
             {
@@ -38,7 +41,7 @@ namespace Orvina.Engine.Support
 
                 //suppose searchText = 50, and lineStartIdx = 40, then 10 is the index of searchText in this line
 
-                var lineResult = new LineResult(TextBytes.CountLines(data, lineStartIdx));
+                var lineResult = new LineResult(TextBytes.CountLines(data, lineStartIdx,ref lastIdx, ref count));
 
                 var matchStartIdx = searchTextIdx - lineStartIdx;
                 var matchEndIdx = matchStartIdx + searchText.matchCount;

@@ -15,10 +15,12 @@ namespace Orvina.Engine
         private readonly List<Task> tasks = new();
         private SpinLock endLock = new();
         private SpinLock eventLock = new();
+        private SpinLock runnerQueueIdLock = new();
         private string[] fileExtensions;
         private int filesEnroute;
         private FileTractor fileTractor;
         private int finishedTasks;
+        private int runnerQueueId;
 
         private bool includeSubdirectories;
         private bool raiseErrors;
@@ -115,19 +117,20 @@ namespace Orvina.Engine
             filesEnroute = 0;
             finishedTasks = 0;
 
+            runnerQueueId = 0;
+
             this.fileExtensions = fileExtensions;
 
             //search threads
             var threadTotal = slowMode ? 1 : Environment.ProcessorCount;
 
-            int i;
             totalQueueCount = 1;
-            for (i = 0; i < threadTotal; i++)
+            for (var i = 0; i < threadTotal; i++)
             {
                 runnerList.Add(new SimpleQueue<string>());
             }
             runnerList[0].Enqueue(searchPath);
-            for (i = 0; i < threadTotal; i++)
+            for (var i = 0; i < threadTotal; i++)
             {
                 tasks.Add(Task.Factory.StartNew((param) => MultiSearch((int)param), i));
             }
@@ -184,7 +187,7 @@ namespace Orvina.Engine
 
                 if (gotItem)
                 {
-                    MultiSearchInner(path, runnerId);
+                    MultiSearchInner(path);
                     LockHelper.RunLock(ref runnerListLock, () =>
                     {
                         totalQueueCount--;
@@ -230,20 +233,20 @@ namespace Orvina.Engine
             TryNotifySearchEnded();
         }
 
-        private void MultiSearchInner(string path, int runnerId)
+        private void MultiSearchInner(string path)
         {
             if (raiseProgress)
             {
                 HandleEvent(new OnProgressEvent(path, false));
             }
 
-            List<FileEntry> pathEntries;
+            FileEntry[] pathEntries;
 
             try
             {
-                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry(entry.ToFullPath(), entry.IsDirectory), eo).ToList();
+                pathEntries = new FileSystemEnumerable<FileEntry>(path, (ref FileSystemEntry entry) => new FileEntry(entry.ToFullPath(), entry.IsDirectory), eo).ToArray();
 
-                for (var i = 0; i < pathEntries.Count && includeSubdirectories; i++)
+                for (var i = 0; i < pathEntries.Length && includeSubdirectories; i++)
                 {
                     if (pathEntries[i].IsDirectory)
                     {
@@ -252,7 +255,11 @@ namespace Orvina.Engine
                             totalQueueCount++;
                         });
 
-                        int targetQueueId = runnerId + 1 < runnerList.Count ? runnerId + 1 : 0;
+                        int targetQueueId = LockHelper.RunLock(ref runnerQueueIdLock, () =>
+                        {
+                            runnerQueueId += (runnerQueueId + 1 == runnerList.Count) ? -runnerQueueId : 1;
+                            return runnerQueueId;
+                        });
 
                         var target = runnerList[targetQueueId];
                         lock (target) //lock my list
@@ -276,7 +283,7 @@ namespace Orvina.Engine
             {
                 for (var k = 0; k < fileExtensions.Length; k++)
                 {
-                    for (var i = 0; i < pathEntries.Count; i++)
+                    for (var i = 0; i < pathEntries.Length; i++)
                     {
                         if (!pathEntries[i].IsDirectory && pathEntries[i].Path.EndsWith(fileExtensions[k], StringComparison.OrdinalIgnoreCase))
                         {

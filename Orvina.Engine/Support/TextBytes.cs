@@ -53,10 +53,9 @@
             }
         }
 
-        public static int CountLines(ReadOnlySpan<byte> data, int upToIndex)
+        public static int CountLines(ReadOnlySpan<byte> data, int upToIndex, ref int lastIdx, ref int count)
         {
-            var count = 1;
-            for (var i = 0; i <= upToIndex && i < data.Length; i++)
+            for (var i = lastIdx; i <= upToIndex && i < data.Length; i++)
             {
                 if (data[i] == newLine)
                     count++;
