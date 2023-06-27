@@ -3,7 +3,6 @@ using System.Text;
 using static Orvina.Engine.SearchEngine;
 
 [assembly: InternalsVisibleTo("UnitTests")]
-
 namespace Orvina.Engine.Support
 {
     internal class FileScanner
@@ -28,22 +27,18 @@ namespace Orvina.Engine.Support
             var searchTextIdx = 0;
             var endFileIdx = data.Length - 1;
 
-            var lineCount = 1;
-            var notUsed = 0;
-
             //found our word in the text
-            while ((searchTextIdx = TextBytes.IndexOf(data, searchText, ref lineCount, searchTextIdx)) >= 0 && !stop)
+            while ((searchTextIdx = TextBytes.IndexOf(data, searchText, searchTextIdx)) >= 0 && !stop)
             {
                 //newLines chars on left and right
                 var lineStartIdx = TextBytes.LeftNewLineIndex(data, searchTextIdx);
-                var lineEndIdx = TextBytes.RightNewLineIndex(data, (searchTextIdx + searchText.matchCount));
+                var lineEndIdx = TextBytes.RightNewLineIndex(data, (searchTextIdx + searchText.matchCount) );
                 lineStartIdx = lineStartIdx >= 0 ? lineStartIdx + 1 : 0;
                 lineEndIdx = lineEndIdx >= 0 ? lineEndIdx - 1 : endFileIdx;
 
                 //suppose searchText = 50, and lineStartIdx = 40, then 10 is the index of searchText in this line
 
-                //var o = TextBytes.CountLines(data, lineStartIdx);
-                var lineResult = new LineResult(lineCount);
+                var lineResult = new LineResult(TextBytes.CountLines(data, lineStartIdx));
 
                 var matchStartIdx = searchTextIdx - lineStartIdx;
                 var matchEndIdx = matchStartIdx + searchText.matchCount;
@@ -59,8 +54,7 @@ namespace Orvina.Engine.Support
 
                 //secondary instances in the line
                 var prevIdx = (lineStartIdx + (matchStartIdx)) + (matchEndIdx - (matchStartIdx));
-
-                while ((searchTextIdx = TextBytes.IndexOf(data, searchText, ref notUsed, (searchTextIdx + searchText.matchCount), lineEndIdx)) >= 0 && !stop)
+                while ((searchTextIdx = TextBytes.IndexOf(data, searchText, (searchTextIdx + searchText.matchCount), lineEndIdx)) >= 0 && !stop)
                 {
                     if (prevIdx < searchTextIdx)
                     {
@@ -75,7 +69,7 @@ namespace Orvina.Engine.Support
 
                 if (prevIdx <= lineEndIdx)
                 {
-                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(prevIdx, lineEndIdx - prevIdx + 1)), false));
+                    lineResult.LineParts.Add(new LinePart(Encoding.UTF8.GetString(data.Slice(prevIdx, lineEndIdx - prevIdx+1)), false));
                 }
 
                 matchingLines.Add(lineResult);

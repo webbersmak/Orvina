@@ -53,17 +53,17 @@
             }
         }
 
-        //public static int CountLines(ReadOnlySpan<byte> data, int upToIndex)
-        //{
-        //    var count = 1;
-        //    for (var i = 0; i <= upToIndex && i < data.Length; i++)
-        //    {
-        //        if (data[i] == newLine)
-        //            count++;
-        //    }
+        public static int CountLines(ReadOnlySpan<byte> data, int upToIndex)
+        {
+            var count = 1;
+            for (var i = 0; i <= upToIndex && i < data.Length; i++)
+            {
+                if (data[i] == newLine)
+                    count++;
+            }
 
-        //    return count;
-        //}
+            return count;
+        }
 
         public static ReadOnlySpan<byte> TrimBytes(ReadOnlySpan<byte> data)
         {
@@ -105,12 +105,10 @@
         /// <param name="searchText"></param>
         /// <param name="initialIdx"></param>
         /// <returns></returns>
-        public static int IndexOf(ReadOnlySpan<byte> data, SearchText searchText, ref int lineCount, int initialIdx = 0, int maxIndex = 0)
+        public static int IndexOf(ReadOnlySpan<byte> data, SearchText searchText, int initialIdx = 0, int maxIndex = 0)
         {
             var j = 0;
             var thoughtIdx = -1;
-
-            var newLines = new List<int>();
 
             for (var i = initialIdx; i < data.Length && (maxIndex == 0 || i <= maxIndex); i++)
             {
@@ -119,36 +117,21 @@
                     j++;//move j up
                 }
 
-                if (data[i] == newLine)//is NewLine
-                {
-                    newLines.Add(i);
-                }
-
                 if ((searchText.upper[j] == questionMark && (j - 1 < 0 || searchText.upper[j - 1] != tilde) && data[i] != newLine && data[i] != carriageReturn) //if searching for a '?'
                     || (data[i] == searchText.upper[j] || data[i] == searchText.lower[j])) //if searching for exact match
                 {
-
                     if (thoughtIdx == -1)
                         thoughtIdx = i;
 
                     j++;
                     if (j > searchText.maxIdx)
-                    {
-                        lineCount += newLines.Count;
                         return thoughtIdx;
-                    }
                 }
                 else
                 {
                     j = 0;
                     if (thoughtIdx >= 0)
-                    {
                         i = thoughtIdx;
-                        while (newLines.Count > 0 && newLines.Last() > i)
-                        {
-                            newLines.RemoveAt(newLines.Count-1);
-                        }
-                    }
                     thoughtIdx = -1;
                 }
             }
