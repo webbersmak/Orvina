@@ -8,7 +8,6 @@ namespace Orvina.Engine
         private readonly SimpleQueue<AsyncFile> dataQ = new();
 
         private readonly ManualResetEventSlim manualReset = new();
-        private SpinLock dataQLock = new();
 
         public void Dispose()
         {
@@ -39,7 +38,8 @@ namespace Orvina.Engine
                 {
                     fs.BeginRead(data, 0, data.Length, OnFileCallback, callId);
                 }
-                catch {
+                catch
+                {
                     fs.Dispose();
                     //throw;
                     return false;
@@ -62,19 +62,18 @@ namespace Orvina.Engine
         {
             while (true)
             {
-                if (LockHelper.RunLock(ref dataQLock, (out AsyncFile file1) =>
+                lock (dataQ)
                 {
-                    return dataQ.TryDequeue(out file1);
-                }, out file))
-                {
-                    return true;
+                    if (dataQ.TryDequeue(out file))
+                    {
+                        return true;
+                    }
                 }
-                else
-                {
-                    manualReset.Wait();
-                }
+
+                manualReset.Wait();
             }
         }
+
         private void OnFileCallback(IAsyncResult ar)
         {
             var callbackId = (int)ar.AsyncState;
@@ -85,11 +84,11 @@ namespace Orvina.Engine
                 context = asyncReads[callbackId];
             }
 
-            LockHelper.RunLock(ref dataQLock, () =>
+            lock (dataQ)
             {
                 dataQ.Enqueue(context);
                 manualReset.Set();
-            });
+            }
 
             context.stream.Dispose();
         }

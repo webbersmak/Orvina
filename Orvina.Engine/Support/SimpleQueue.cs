@@ -15,14 +15,6 @@
             Reset();
         }
 
-        public bool Any
-        {
-            get
-            {
-                return Count > 0;
-            }
-        }
-
         //public T[] ToArray
         //{
         //    get
@@ -32,10 +24,8 @@
         //        return temp;
         //    }
         //}
-        public int Count
-        {
-            get { return rearIdx < 0 ? 0 : rearIdx - frontIdx + 1; }
-        }
+
+        private int Count;
 
         public void Clear()
         {
@@ -62,6 +52,8 @@
             //    Array.Resize(ref nodes, desiredIdx + 1);
             //}
 
+            Count--;
+
             return result;
         }
 
@@ -81,11 +73,13 @@
             {
                 frontIdx = rearIdx;
             }
+
+            Count++;
         }
 
         public bool TryDequeue(out T value)
         {
-            if (Any)
+            if (Count > 0)
             {
                 value = Dequeue();
                 return true;
