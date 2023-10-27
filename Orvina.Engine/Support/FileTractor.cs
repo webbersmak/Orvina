@@ -9,6 +9,8 @@ namespace Orvina.Engine
 
         private readonly ManualResetEventSlim manualReset = new();
 
+        private SpinLock dataQLock = new();
+
         public void Dispose()
         {
             manualReset.Dispose();
@@ -62,15 +64,17 @@ namespace Orvina.Engine
         {
             while (true)
             {
-                lock (dataQ)
+                if (LockHelper.RunLock(ref dataQLock, (out AsyncFile file1) =>
                 {
-                    if (dataQ.TryDequeue(out file))
-                    {
-                        return true;
-                    }
+                    return dataQ.TryDequeue(out file1);
+                }, out file))
+                {
+                    return true;
                 }
-
-                manualReset.Wait();
+                else
+                {
+                    manualReset.Wait();
+                }
             }
         }
 
@@ -84,15 +88,13 @@ namespace Orvina.Engine
                 context = asyncReads[callbackId];
             }
 
-            lock (dataQ)
-            {
-                dataQ.Enqueue(context);
-                manualReset.Set();
-            }
-
+            LockHelper.RunLock(ref dataQLock, () => {
+              dataQ.Enqueue(context);
+            });
+ 
+            manualReset.Set();
             context.stream.Dispose();
         }
-
         public struct AsyncFile
         {
             public byte[] data;
