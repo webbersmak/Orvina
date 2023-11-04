@@ -1,5 +1,6 @@
 ﻿using Orvina.Engine.Support;
 using System.IO.Enumeration;
+using System.Text;
 
 namespace Orvina.Engine
 {
@@ -76,8 +77,10 @@ namespace Orvina.Engine
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
         public void Start(string searchPath, bool includeSubirectories, string searchText, params string[] fileExtensions)
         {
-            Start(searchPath, includeSubirectories, searchText, false, false, false, fileExtensions);
+            Start(searchPath, includeSubirectories, searchText, false, false, false, false, fileExtensions);
         }
+
+        private bool DirectoryOnlyMode;
 
         /// <summary>
         /// Call this method to start the search. Or call it to restart the search after the OnSearchComplete event is raised.
@@ -87,8 +90,9 @@ namespace Orvina.Engine
         /// <param name="caseSensitive">true or false, inidicates the search text is case sensitive</param>
         /// <param name="searchText">the text the file should contain. Not case sensitive. Not a regular expression (yet)</param>
         /// <param name="includeHidden">true or false</param>
+        /// <param name="foldersOnly">true or false</param>
         /// <param name="fileExtensions">such as ".cs", ".txt"</param>
-        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, bool caseSensitive, bool slowMode, params string[] fileExtensions)
+        public void Start(string searchPath, bool includeSubirectories, string searchText, bool includeHidden, bool caseSensitive, bool slowMode, bool foldersOnly, params string[] fileExtensions)
         {
             if (tasks.Any() && tasks.Any(t => !t.IsCompletedSuccessfully))
             {
@@ -120,6 +124,7 @@ namespace Orvina.Engine
             runnerQueueId = 0;
 
             this.fileExtensions = fileExtensions;
+            this.DirectoryOnlyMode = foldersOnly;
 
             //search threads
             var threadTotal = slowMode ? 1 : Environment.ProcessorCount;
@@ -250,6 +255,16 @@ namespace Orvina.Engine
                 {
                     if (pathEntries[i].IsDirectory)
                     {
+                        if (DirectoryOnlyMode)
+                        {
+                            var pathBytes = Encoding.UTF8.GetBytes(pathEntries[i].Path);
+                            var results = fileScanner.ScanFile(pathBytes.AsSpan());
+                            if (results.Count > 0)
+                            {
+                                HandleEvent(new OnFileFoundEvent(pathEntries[i].Path, results));
+                            }
+                        }
+
                         LockHelper.RunLock(ref runnerListLock, () =>
                         {
                             totalQueueCount++;
@@ -281,7 +296,7 @@ namespace Orvina.Engine
 
             try
             {
-                for (var k = 0; k < fileExtensions.Length; k++)
+                for (var k = 0; !DirectoryOnlyMode && k < fileExtensions.Length; k++)
                 {
                     for (var i = 0; i < pathEntries.Length; i++)
                     {

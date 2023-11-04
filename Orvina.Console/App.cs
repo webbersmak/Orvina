@@ -42,6 +42,7 @@ namespace Orvina.Console
                     WriteLine("     -debug              Show error messages.");
                     WriteLine("     -hidden             Search hidden directories.");
                     WriteLine("     -noopen             Suppress asking to open a file on completion.");
+                    WriteLine("     -folders            Search for matching folders instead of files.");
                     WriteLine("     -slow               Single thread mode. Can be useful for older, mechanical hdds.");
                     WriteLine("");
                     WriteLine("Example:\n");
@@ -100,6 +101,7 @@ namespace Orvina.Console
                         cmdArgs.showHidden,
                         cmdArgs.caseSensitive,
                         cmdArgs.slowMode,
+                        cmdArgs.foldersOnly,
                         cmdArgs.fileExtensions);
                 }
                 catch (Exception e)
@@ -124,7 +126,14 @@ namespace Orvina.Console
 
                 while (!attemptQuit && searchResults.Count > 0 && !cmdArgs.noOpen)
                 {
-                    WriteLine("Open File? Enter Id or 'q' to quit: ");
+                    if (cmdArgs.foldersOnly)
+                    {
+                        WriteLine("Open Folder? Enter Id or 'q' to quit: ");
+                    }
+                    else
+                    {
+                        WriteLine("Open File? Enter Id or 'q' to quit: ");
+                    }
 
                     var key = System.Console.ReadKey();
                     attemptQuit = key.Key == ConsoleKey.Q;
@@ -178,28 +187,51 @@ namespace Orvina.Console
 
         private void OutputResults()
         {
+
             for (var i = 0; i < searchResults.Count; i++)
             {
-                PrintFileFound(searchResults[i].file, i + 1);
-
-                //Print Line Data
-                foreach (var lineResult in searchResults[i].lineResults)
+                if (cmdArgs.foldersOnly)
                 {
-                    if (attemptQuit)
-                        return;
-
-                    SetColor(ConsoleColor.Yellow);
-                    System.Console.Write($"({lineResult.LineNumber}) ");
-
-                    foreach (var linePart in lineResult.LineParts)
+                    foreach (var lineResult in searchResults[i].lineResults)
                     {
-                        SetColor(linePart.IsMatch ? ConsoleColor.DarkCyan : ConsoleColor.Yellow);
-                        System.Console.Write(linePart.Text);
-                    }
+                        if (attemptQuit)
+                            return;
 
-                    System.Console.WriteLine();
+                        foreach (var linePart in lineResult.LineParts)
+                        {
+                            SetColor(linePart.IsMatch ? ConsoleColor.DarkCyan : ConsoleColor.Yellow);
+                            System.Console.Write(linePart.Text);
+                        }
+
+                        SetColor(ConsoleColor.DarkGray);
+                        WriteLine($"({i + 1})");
+                    }
+                }
+                else
+                {
+
+                    PrintFileFound(searchResults[i].file, i + 1);
+
+                    //Print Line Data
+                    foreach (var lineResult in searchResults[i].lineResults)
+                    {
+                        if (attemptQuit)
+                            return;
+
+                        SetColor(ConsoleColor.Yellow);
+                        System.Console.Write($"({lineResult.LineNumber}) ");
+
+                        foreach (var linePart in lineResult.LineParts)
+                        {
+                            SetColor(linePart.IsMatch ? ConsoleColor.DarkCyan : ConsoleColor.Yellow);
+                            System.Console.Write(linePart.Text);
+                        }
+
+                        System.Console.WriteLine();
+                    }
                 }
             }
+
         }
 
         private void PrintFileFound(string file, int fileId)
@@ -217,7 +249,8 @@ namespace Orvina.Console
             SetColor(ConsoleColor.Red);
             System.Console.Write(fileName);
 
-            if (cmdArgs.noOpen) {
+            if (cmdArgs.noOpen)
+            {
                 WriteLine("");
             }
             else
@@ -246,7 +279,15 @@ namespace Orvina.Console
                 {
                     cmdArgs.searchPath = args[0];
                     cmdArgs.searchText = args[1];
-                    cmdArgs.fileExtensions = args[2].Split(',');
+                    if (args.Any(a => a == "-folders" || a == "/folders"))
+                    {
+                        cmdArgs.foldersOnly = true;
+                        cmdArgs.fileExtensions = null;
+                    }
+                    else
+                    {
+                        cmdArgs.fileExtensions = args[2].Split(',');
+                    }
                     cmdArgs.includeSubdirectories = !args.Any(a => a == "-nosub" || a == "/nosub");
                     cmdArgs.showErrors = args.Any(a => a == "-debug" || a == "/debug");
                     cmdArgs.showProgress = args.Any(a => a == "-progress" || a == "/progress");
@@ -254,6 +295,8 @@ namespace Orvina.Console
                     cmdArgs.caseSensitive = args.Any(a => a == "-cases" || a == "/cases");
                     cmdArgs.slowMode = args.Any(a => a == "-slow" || a == "/slow");
                     cmdArgs.noOpen = args.Any(a => a == "-noopen" || a == "/noopen");
+
+
                     return AppState.Run;
                 }
             }
@@ -323,6 +366,7 @@ namespace Orvina.Console
             public bool showProgress;
             public bool slowMode;
             public bool noOpen;
+            public bool foldersOnly;
         }
 
         private struct FileResult

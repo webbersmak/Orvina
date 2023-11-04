@@ -6,7 +6,7 @@ namespace TestProject1
     [TestClass]
     public class Test_TextBytes
     {
-        private static byte[] data = System.Text.Encoding.UTF8.GetBytes(UnitTests.Properties.Resources.Anthem);
+        private static readonly byte[] data = System.Text.Encoding.UTF8.GetBytes(UnitTests.Properties.Resources.Anthem);
 
         [TestMethod]
         public void Simple_StringLiterals_Test()

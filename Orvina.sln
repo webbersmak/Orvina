@@ -11,7 +11,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Test", "Test", "{BA8BC5B4-9
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Test.App", "Test.App\Test.App.csproj", "{3FC7CA2A-80B0-407A-9F24-3806ADEE7885}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\UnitTests.csproj", "{40EA5FD7-08BB-4E73-94EF-A044A0B01653}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "UnitTests", "UnitTests\UnitTests.csproj", "{40EA5FD7-08BB-4E73-94EF-A044A0B01653}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Orvina.UI", "Orvina.UI\Orvina.UI.csproj", "{A4102DF5-2584-4112-8C75-143E57A9341B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -35,6 +37,10 @@ Global
 		{40EA5FD7-08BB-4E73-94EF-A044A0B01653}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{40EA5FD7-08BB-4E73-94EF-A044A0B01653}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{40EA5FD7-08BB-4E73-94EF-A044A0B01653}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A4102DF5-2584-4112-8C75-143E57A9341B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A4102DF5-2584-4112-8C75-143E57A9341B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A4102DF5-2584-4112-8C75-143E57A9341B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A4102DF5-2584-4112-8C75-143E57A9341B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

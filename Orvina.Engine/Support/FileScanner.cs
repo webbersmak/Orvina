@@ -123,7 +123,7 @@ namespace Orvina.Engine.Support
 
                             //secondary instances in the line
                             var prevIdx = idx + (endIdx - idx);
-                            while ((idx = fsm.IndexOf(lineData, searchText, out endIdx, endIdx)) >= 0)
+                            while ((idx = fsm.IndexOf(lineData, searchText, out endIdx, endIdx)) >= 0 && !stop)
                             {
                                 if (prevIdx < idx)
                                 {
