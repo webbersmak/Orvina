@@ -219,7 +219,7 @@
             casesensitiveCheckBox.Size = new Size(100, 19);
             casesensitiveCheckBox.TabIndex = 18;
             casesensitiveCheckBox.Text = "Case Sensitive";
-            toolTip1.SetToolTip(casesensitiveCheckBox, "use on older, mechanical drives");
+            toolTip1.SetToolTip(casesensitiveCheckBox, "case-sensitive searching");
             casesensitiveCheckBox.UseVisualStyleBackColor = true;
             // 
             // label4
