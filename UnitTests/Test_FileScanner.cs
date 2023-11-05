@@ -11,6 +11,17 @@ namespace TestProject1
         private static readonly byte[] data = System.Text.Encoding.UTF8.GetBytes(UnitTests.Properties.Resources.Anthem);
 
         [TestMethod]
+        public void EnsureNextLineNotIncluded()
+        {
+            //fixed by changing 1 to 0 in C:\pproj\Orvina\Orvina.Engine\Support\FileScanner.cs
+            //line 105
+            scanner.searchText = new("orv*a");
+            var d = System.Text.Encoding.UTF8.GetBytes("using Orvina.Engine;\nf");
+            var lines = scanner.ScanFile(d);
+            Assert.IsTrue(lines.Count == 1 && lines[0].LineParts.Count == 3 && !lines[0].LineParts[2].Text.EndsWith('f'));
+        }
+
+        [TestMethod]
         public void VerifyLines()
         {
             scanner.searchText = new("O say can you see");

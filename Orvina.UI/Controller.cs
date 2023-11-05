@@ -14,17 +14,56 @@
             this.model.OnDirectoryChanged += Model_OnDirectoryChanged;
             this.model.OnFilesChanged += Model_OnFilesChanged;
             this.model.OnIsSearchingChanged += Model_OnIsSearchingChanged;
+            this.model.OnFoldersOnlyChanged += Model_OnFoldersOnlyChanged;
+            this.model.OnHDDModeChanged += Model_OnHDDModeChanged;
+            this.model.OnCaseSensitiveChanged += Model_OnCaseSensitiveChanged;
 
             this.view.OnDirectoryTextChanged += View_OnDirectoryTextChanged;
             this.view.OnSearchTextChanged += View_OnSearchTextChanged;
             this.view.OnFilesTextChanged += View_OnFilesTextChanged;
             this.view.DoSearch += View_DoSearch;
             this.view.OnCancel += View_OnCancel;
+            this.view.OnFoldersOnlyChanged += View_OnFoldersOnlyChanged;
+            this.view.OnHddModeChanged += View_OnHddModeChanged;
+            this.view.OnCaseSensitiveChanged += View_OnCaseSensitiveChanged;
 
             Model_OnTextChanged();
             Model_OnDirectoryChanged();
             Model_OnFilesChanged();
             Model_OnIsSearchingChanged();
+            Model_OnFoldersOnlyChanged();
+            Model_OnHDDModeChanged();
+            Model_OnCaseSensitiveChanged();
+        }
+
+        private void View_OnCaseSensitiveChanged()
+        {
+            this.model.CaseSensitive = this.view.CaseSensitive;
+        }
+
+        private void View_OnHddModeChanged()
+        {
+            this.model.HDDMode = this.view.HddMode;
+        }
+
+        private void View_OnFoldersOnlyChanged()
+        {
+            this.model.FoldersOnly = this.view.FoldersOnly;
+        }
+
+        private void Model_OnCaseSensitiveChanged()
+        {
+            this.view.CaseSensitive = this.model.CaseSensitive;
+        }
+
+        private void Model_OnHDDModeChanged()
+        {
+            this.view.HddMode = this.model.HDDMode;
+        }
+
+        private void Model_OnFoldersOnlyChanged()
+        {
+            this.view.FoldersOnly = this.model.FoldersOnly;
         }
 
         private void View_OnCancel()

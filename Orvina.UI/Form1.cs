@@ -7,9 +7,5 @@ namespace Orvina.UI
             InitializeComponent();
         }
 
-        private void Form1_Shown(object sender, EventArgs e)
-        {
-            ActiveControl = null;
-        }
     }
 }

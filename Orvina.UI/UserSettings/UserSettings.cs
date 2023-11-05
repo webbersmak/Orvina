@@ -23,9 +23,14 @@ namespace Orvina.UI.UserSettings
             }
         }
 
-        public List<string> Directories { get; set; } = new List<string>() { @"C:\" };
+        public List<string> Directories { get; set; } = new List<string>() { @"C:\users" };
         public List<string> SearchTexts { get; set; } = new List<string>() { @"orvina" };
         public List<string> FileTypes { get; set; } = new List<string>() { @".txt,.html" };
+
+        public bool FoldersOnly { get; set; } = false;
+        public bool HDDMode { get; set;} = false;
+
+        public bool CaseSensitive { get; set; } = false;
 
         private static void Load()
         {
@@ -48,7 +53,6 @@ namespace Orvina.UI.UserSettings
             {
                 Directories.RemoveAt(Directories.Count - 1);
             }
-
             while (SearchTexts.Count > 10)
             {
                 SearchTexts.RemoveAt(SearchTexts.Count - 1);

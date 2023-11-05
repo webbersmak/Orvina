@@ -102,7 +102,7 @@ namespace Orvina.Engine.Support
                     if (i > lastNewline)
                     {
                         lastNewline = lastNewline < 0 ? 0 : lastNewline;
-                        var lineData = data.Slice(lastNewline, i - lastNewline + 1);
+                        var lineData = data.Slice(lastNewline, i - lastNewline + 0);
 
                         int idx;
                         if ((idx = fsm.IndexOf(lineData, searchText, out int endIdx)) >= 0)

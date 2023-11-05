@@ -36,6 +36,10 @@ namespace Orvina.UI
 
         public event Action OnCancel;
 
+        public event Action OnFoldersOnlyChanged;
+        public event Action OnHddModeChanged;
+        public event Action OnCaseSensitiveChanged;
+
         public View(Form1 form)
         {
             this.MainForm = form;
@@ -49,6 +53,35 @@ namespace Orvina.UI
 
             form.SearchButton.Click += SearchButton_Click;
             form.cancelButton.Click += CancelButton_Click;
+            form.AcceptButton = MainForm.SearchButton;
+
+            form.foldersOnlyCheckBox.CheckedChanged += FoldersOnlyCheckBox_CheckedChanged;
+            form.hddmodeCheckBox.CheckedChanged += HddmodeCheckBox_CheckedChanged;
+            form.casesensitiveCheckBox.CheckedChanged += CasesensitiveCheckBox_CheckedChanged;
+        }
+
+        private void CasesensitiveCheckBox_CheckedChanged(object? sender, EventArgs e)
+        {
+            MainForm.casesensitiveCheckBox.ForeColor = MainForm.casesensitiveCheckBox.Checked ?
+                SystemColors.ControlText : SystemColors.ButtonShadow;
+
+            OnCaseSensitiveChanged();
+        }
+
+        private void HddmodeCheckBox_CheckedChanged(object? sender, EventArgs e)
+        {
+            MainForm.hddmodeCheckBox.ForeColor = MainForm.hddmodeCheckBox.Checked ?
+                SystemColors.ControlText : SystemColors.ButtonShadow;
+
+            OnHddModeChanged();
+        }
+
+        private void FoldersOnlyCheckBox_CheckedChanged(object? sender, EventArgs e)
+        {
+            MainForm.foldersOnlyCheckBox.ForeColor = MainForm.foldersOnlyCheckBox.Checked ?
+                SystemColors.ControlText : SystemColors.ButtonShadow;
+
+            OnFoldersOnlyChanged();
         }
 
         private void CancelButton_Click(object? sender, EventArgs e)
@@ -70,8 +103,6 @@ namespace Orvina.UI
 
         private void FilesListBox_SelectedIndexChanged()
         {
-            this.MainForm.richTextBox1.ResetText();
-
             if (MainForm.FilesListBox.SelectedItem != null)
             {
                 var results = ((ListBoxItem)MainForm.FilesListBox.SelectedItem).lineResults;
@@ -109,6 +140,12 @@ namespace Orvina.UI
                     MainForm.richTextBox1.Select(entry.Key, entry.Value);
                     MainForm.richTextBox1.SelectionColor = Color.ForestGreen;
                 }
+
+                MainForm.richTextBox1.SelectionLength = 0;
+                MainForm.FilesListBox.Focus();
+            }
+            else {
+                this.MainForm.richTextBox1.ResetText();
             }
         }
 
@@ -177,10 +214,48 @@ namespace Orvina.UI
             }
         }
 
-        public bool ShowError
+        public bool FoldersOnly
         {
             set
             {
+                if (value != MainForm.foldersOnlyCheckBox.Checked)
+                {
+                    MainForm.foldersOnlyCheckBox.Checked = value;
+                }
+            }
+            get
+            {
+                return MainForm.foldersOnlyCheckBox.Checked;
+            }
+        }
+
+        public bool HddMode
+        {
+            set
+            {
+                if (value != MainForm.hddmodeCheckBox.Checked)
+                {
+                    MainForm.hddmodeCheckBox.Checked = value;
+                }
+            }
+            get
+            {
+                return MainForm.hddmodeCheckBox.Checked;
+            }
+        }
+
+        public bool CaseSensitive
+        {
+            set
+            {
+                if (value != MainForm.casesensitiveCheckBox.Checked)
+                {
+                    MainForm.casesensitiveCheckBox.Checked = value;
+                }
+            }
+            get
+            {
+                return MainForm.casesensitiveCheckBox.Checked;
             }
         }
 

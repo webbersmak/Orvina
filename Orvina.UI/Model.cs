@@ -9,6 +9,9 @@ namespace Orvina.UI
         private string files;
         private string searchText;
 
+        private bool foldersOnly;
+        private bool hddmode;
+
         public event Action OnDirectoryChanged;
 
         public event Action OnFilesChanged;
@@ -19,22 +22,68 @@ namespace Orvina.UI
 
         private SearchEngine search;
 
+        public bool FoldersOnly
+        {
+            get
+            {
+                return foldersOnly;
+            }
+            set
+            {
+                if (!IsSearching)
+                {
+                    foldersOnly = value;
+                }
+                OnFoldersOnlyChanged();
+            }
+        }
+
+        public event Action OnFoldersOnlyChanged;
+        public event Action OnHDDModeChanged;
+        public event Action OnCaseSensitiveChanged;
+        private bool caseSensitive;
+
+        public bool CaseSensitive
+        {
+            get
+            {
+                return caseSensitive;
+            }
+            set
+            {
+                if (!IsSearching)
+                {
+                    caseSensitive = value;
+                }
+                OnCaseSensitiveChanged();
+            }
+        }
+
+        public bool HDDMode
+        {
+            get
+            {
+                return hddmode;
+            }
+            set
+            {
+                if (!IsSearching)
+                {
+                    hddmode = value;
+                }
+                OnHDDModeChanged();
+            }
+        }
+
         public Model()
         {
             var settings = UserSettings.UserSettings.Instance;
-
-            if (settings.Directories.Any())
-            {
-                directory = settings.Directories[0];
-            }
-            if (settings.SearchTexts.Any())
-            {
-                searchText = settings.SearchTexts[0];
-            }
-            if (settings.FileTypes.Any())
-            {
-                files = settings.FileTypes[0];
-            }
+            directory = settings.Directories[0];
+            searchText = settings.SearchTexts[0]; 
+            files = settings.FileTypes[0];
+            foldersOnly = settings.FoldersOnly;
+            hddmode = settings.HDDMode;
+            caseSensitive = settings.CaseSensitive;
         }
 
         public bool Error { get; private set; }
@@ -117,42 +166,39 @@ namespace Orvina.UI
                 return;
 
             //handle user settings
-            var saveNeeded = false;
             var settings = UserSettings.UserSettings.Instance;
-            if (!settings.Directories.Any())
-            {
-                saveNeeded = true;
-            }
-            else if (directory != settings.Directories[0])
+
+            if (directory != settings.Directories[0])
             {
                 settings.Directories.Insert(0, directory);
-                saveNeeded = true;
-            }
-
-            if (!settings.SearchTexts.Any())
-            {
-                saveNeeded = true;
+                settings.Save();
             }
             else if (searchText != settings.SearchTexts[0])
             {
                 settings.SearchTexts.Insert(0, searchText);
-                saveNeeded = true;
-            }
-
-            if (!settings.FileTypes.Any())
-            {
-                saveNeeded = true;
-            }
-            else if (files != settings.FileTypes[0])
-            {
-                settings.FileTypes.Insert(0, files);
-                saveNeeded = true;
-            }
-
-            if (saveNeeded)
-            {
                 settings.Save();
             }
+            if (files != settings.FileTypes[0])
+            {
+                settings.FileTypes.Insert(0, files);
+                settings.Save();
+            }
+            else if (foldersOnly != settings.FoldersOnly)
+            {
+                settings.FoldersOnly = foldersOnly;
+                settings.Save();
+            }
+            else if (hddmode != settings.HDDMode)
+            {
+                settings.HDDMode = hddmode;
+                settings.Save();
+            }
+            else if (caseSensitive != settings.CaseSensitive)
+            {
+                settings.CaseSensitive = caseSensitive;
+                settings.Save();
+            }
+
             //////////////////
 
             IsSearching = true;
@@ -167,15 +213,16 @@ namespace Orvina.UI
                     true,
                     SearchText,
                     false,
-                    false,
-                    false,
-                    foldersOnly: false,
+                    caseSensitive: caseSensitive,
+                    slowMode: hddmode,
+                    foldersOnly: foldersOnly,
                     Files.Split(','));
             }
             catch (Exception e)
             {
-                //WriteLine(e.Message);
-                //Environment.Exit(0);
+                search.OnSearchComplete -= Search_OnSearchComplete;
+                search.OnFileFound -= Search_OnFileFound;
+                search.OnError -= Search_OnError;
             }
         }
 
@@ -183,6 +230,7 @@ namespace Orvina.UI
         {
             search.OnSearchComplete -= Search_OnSearchComplete;
             search.OnFileFound -= Search_OnFileFound;
+            search.OnError -= Search_OnError;
             Error = true;
             IsSearching = false;
         }
@@ -191,6 +239,7 @@ namespace Orvina.UI
         {
             search.OnSearchComplete -= Search_OnSearchComplete;
             search.OnFileFound -= Search_OnFileFound;
+            search.OnError -= Search_OnError;
             IsSearching = false;
         }
 

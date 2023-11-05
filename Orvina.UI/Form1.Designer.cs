@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             SearchButton = new Button();
             FilesListBox = new ListBox();
@@ -41,6 +42,11 @@
             searchBox = new ComboBox();
             filesBox = new ComboBox();
             cancelButton = new Button();
+            foldersOnlyCheckBox = new CheckBox();
+            hddmodeCheckBox = new CheckBox();
+            toolTip1 = new ToolTip(components);
+            casesensitiveCheckBox = new CheckBox();
+            label4 = new Label();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
             splitContainer1.Panel2.SuspendLayout();
@@ -64,6 +70,7 @@
             FilesListBox.Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
             FilesListBox.ForeColor = SystemColors.Window;
             FilesListBox.FormattingEnabled = true;
+            FilesListBox.HorizontalScrollbar = true;
             FilesListBox.ItemHeight = 17;
             FilesListBox.Location = new Point(0, 0);
             FilesListBox.Name = "FilesListBox";
@@ -115,7 +122,7 @@
             richTextBox1.BorderStyle = BorderStyle.None;
             richTextBox1.DetectUrls = false;
             richTextBox1.Dock = DockStyle.Fill;
-            richTextBox1.Font = new Font("Segoe UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+            richTextBox1.Font = new Font("Segoe UI", 11F, FontStyle.Regular, GraphicsUnit.Point);
             richTextBox1.ForeColor = SystemColors.Window;
             richTextBox1.Location = new Point(0, 0);
             richTextBox1.Name = "richTextBox1";
@@ -178,11 +185,61 @@
             cancelButton.Text = "Cancel";
             cancelButton.UseVisualStyleBackColor = true;
             // 
+            // foldersOnlyCheckBox
+            // 
+            foldersOnlyCheckBox.AutoSize = true;
+            foldersOnlyCheckBox.ForeColor = SystemColors.ButtonShadow;
+            foldersOnlyCheckBox.Location = new Point(605, 12);
+            foldersOnlyCheckBox.Name = "foldersOnlyCheckBox";
+            foldersOnlyCheckBox.Size = new Size(92, 19);
+            foldersOnlyCheckBox.TabIndex = 15;
+            foldersOnlyCheckBox.Text = "Folders Only";
+            toolTip1.SetToolTip(foldersOnlyCheckBox, "search for folders instead of files");
+            foldersOnlyCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // hddmodeCheckBox
+            // 
+            hddmodeCheckBox.AutoSize = true;
+            hddmodeCheckBox.ForeColor = SystemColors.ButtonShadow;
+            hddmodeCheckBox.Location = new Point(605, 37);
+            hddmodeCheckBox.Name = "hddmodeCheckBox";
+            hddmodeCheckBox.Size = new Size(85, 19);
+            hddmodeCheckBox.TabIndex = 16;
+            hddmodeCheckBox.Text = "HDD Mode";
+            toolTip1.SetToolTip(hddmodeCheckBox, "use on older, mechanical drives");
+            hddmodeCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // casesensitiveCheckBox
+            // 
+            casesensitiveCheckBox.AutoSize = true;
+            casesensitiveCheckBox.ForeColor = SystemColors.ButtonShadow;
+            casesensitiveCheckBox.Location = new Point(337, 8);
+            casesensitiveCheckBox.Name = "casesensitiveCheckBox";
+            casesensitiveCheckBox.Size = new Size(100, 19);
+            casesensitiveCheckBox.TabIndex = 18;
+            casesensitiveCheckBox.Text = "Case Sensitive";
+            toolTip1.SetToolTip(casesensitiveCheckBox, "use on older, mechanical drives");
+            casesensitiveCheckBox.UseVisualStyleBackColor = true;
+            // 
+            // label4
+            // 
+            label4.AutoSize = true;
+            label4.ForeColor = SystemColors.ButtonShadow;
+            label4.Location = new Point(663, 70);
+            label4.Name = "label4";
+            label4.Size = new Size(125, 15);
+            label4.TabIndex = 17;
+            label4.Text = "(double-click to open)";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(casesensitiveCheckBox);
+            Controls.Add(label4);
+            Controls.Add(hddmodeCheckBox);
+            Controls.Add(foldersOnlyCheckBox);
             Controls.Add(cancelButton);
             Controls.Add(filesBox);
             Controls.Add(searchBox);
@@ -196,7 +253,6 @@
             Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "Form1";
             Text = "Orvina High Performance Text Search";
-            Shown += Form1_Shown;
             splitContainer1.Panel1.ResumeLayout(false);
             splitContainer1.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)splitContainer1).EndInit();
@@ -218,5 +274,10 @@
         public ComboBox searchBox;
         public ComboBox filesBox;
         public Button cancelButton;
+        private ToolTip toolTip1;
+        private Label label4;
+        public CheckBox foldersOnlyCheckBox;
+        public CheckBox hddmodeCheckBox;
+        public CheckBox casesensitiveCheckBox;
     }
 }
