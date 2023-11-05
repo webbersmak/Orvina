@@ -58,6 +58,15 @@ namespace Orvina.UI
             form.foldersOnlyCheckBox.CheckedChanged += FoldersOnlyCheckBox_CheckedChanged;
             form.hddmodeCheckBox.CheckedChanged += HddmodeCheckBox_CheckedChanged;
             form.casesensitiveCheckBox.CheckedChanged += CasesensitiveCheckBox_CheckedChanged;
+
+            form.linkLabel.Click += (x,y) => {
+                var url = "aHR0cHM6Ly93d3cucGF5cGFsLmNvbS9wYXlwYWxtZS93ZWJiZXJzbWFr";
+                var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(url));
+
+                using (var p = Process.Start(new ProcessStartInfo(decoded) { UseShellExecute = true }))
+                {
+                };
+            };
         }
 
         private void CasesensitiveCheckBox_CheckedChanged(object? sender, EventArgs e)

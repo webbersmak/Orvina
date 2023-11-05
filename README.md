@@ -1,15 +1,19 @@
 # Orvina
 
+> <span style="font-size: 24px;">"No matter how the sands arrange, her path prevails."</span>
+> 
+> ![orvina.jpg](/orvina.jpg)
+
 ## Introduction
 
-This is a high performance text search utility written in C#/.NET 6. Speed, ease of use, and robustness were all accounted for in the development of Orvina.
+Orvina is a high performance text search utility written in C#/.NET 6. Speed, ease of use, and robustness were all accounted for in the development of Orvina.
 Text search allows for basic wildcards like " \* " (0 or more characters) and " \? " (any character). Case sensitivity can be enabled with "-cases" parameter.
 
-This repository contains 2 projects: 
+This repository contains 3 projects: 
 
 1. **Orvina.Console**
     - Console Application - [Download Exe](https://github.com/webbersmak/Orvina/releases)
-    - Builds the application for searching files for text
+    - Targets .NET 6 (Portable Build)
     - The output will list the files containing the search text and show the lines of the file containing the search text 
     - use "orvina.exe -help" to see all options
     - Example usage:
@@ -23,9 +27,17 @@ This repository contains 2 projects:
 
     - Wildcards "\?" and "\*" are supported. So "p?n" will match "pen" and "pin". And "b\*d" will match "bind" and "bound".
 
-2. **Orvina.Engine**
+2. **Orvina.UI**
+    - WinForms UI for Orvina.Engine
+    - Targets .NET 6 (win64 binary)
+    - Supports Wildcards
+    - Example usage:
+    
+    ![ui.png](/ui.png)
+
+3. **Orvina.Engine**
     - Class Library available as a [nuget package](https://www.nuget.org/packages/Orvina.Engine)
-    - The only dependency of Orvina.Console
+    - The only dependency of Orvina.Console and Orvina.UI
     - Example usage:
     ```
     using (var search = new Orvina.Engine.SearchEngine())

@@ -47,6 +47,7 @@
             toolTip1 = new ToolTip(components);
             casesensitiveCheckBox = new CheckBox();
             label4 = new Label();
+            linkLabel = new LinkLabel();
             ((System.ComponentModel.ISupportInitialize)splitContainer1).BeginInit();
             splitContainer1.Panel1.SuspendLayout();
             splitContainer1.Panel2.SuspendLayout();
@@ -74,7 +75,7 @@
             FilesListBox.ItemHeight = 17;
             FilesListBox.Location = new Point(0, 0);
             FilesListBox.Name = "FilesListBox";
-            FilesListBox.Size = new Size(776, 161);
+            FilesListBox.Size = new Size(776, 154);
             FilesListBox.TabIndex = 4;
             // 
             // SearchingLabel
@@ -127,7 +128,7 @@
             richTextBox1.Location = new Point(0, 0);
             richTextBox1.Name = "richTextBox1";
             richTextBox1.ReadOnly = true;
-            richTextBox1.Size = new Size(776, 185);
+            richTextBox1.Size = new Size(776, 177);
             richTextBox1.TabIndex = 9;
             richTextBox1.Text = "";
             // 
@@ -145,8 +146,8 @@
             // splitContainer1.Panel2
             // 
             splitContainer1.Panel2.Controls.Add(richTextBox1);
-            splitContainer1.Size = new Size(776, 350);
-            splitContainer1.SplitterDistance = 161;
+            splitContainer1.Size = new Size(776, 335);
+            splitContainer1.SplitterDistance = 154;
             splitContainer1.TabIndex = 10;
             // 
             // directoryBox
@@ -223,6 +224,7 @@
             // 
             // label4
             // 
+            label4.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
             label4.AutoSize = true;
             label4.ForeColor = SystemColors.ButtonShadow;
             label4.Location = new Point(663, 70);
@@ -231,11 +233,25 @@
             label4.TabIndex = 17;
             label4.Text = "(double-click to open)";
             // 
+            // linkLabel
+            // 
+            linkLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            linkLabel.AutoSize = true;
+            linkLabel.Cursor = Cursors.Hand;
+            linkLabel.Location = new Point(12, 426);
+            linkLabel.Name = "linkLabel";
+            linkLabel.Size = new Size(97, 15);
+            linkLabel.TabIndex = 19;
+            linkLabel.TabStop = true;
+            linkLabel.Text = "support my work";
+            linkLabel.VisitedLinkColor = Color.Blue;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(800, 450);
+            Controls.Add(linkLabel);
             Controls.Add(casesensitiveCheckBox);
             Controls.Add(label4);
             Controls.Add(hddmodeCheckBox);
@@ -279,5 +295,6 @@
         public CheckBox foldersOnlyCheckBox;
         public CheckBox hddmodeCheckBox;
         public CheckBox casesensitiveCheckBox;
+        public LinkLabel linkLabel;
     }
 }
