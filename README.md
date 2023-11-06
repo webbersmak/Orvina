@@ -1,4 +1,4 @@
-# Orvina
+# Orvina - A High Performance Text Search Utility
 
 > <span style="font-size: 24px;">"No matter how the sands arrange, her path prevails."</span>
 > 
