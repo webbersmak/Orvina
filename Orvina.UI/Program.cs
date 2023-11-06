@@ -13,7 +13,7 @@ namespace Orvina.UI
             ApplicationConfiguration.Initialize();
 
             var model = new Model();
-            var view = new View(new Form1());
+            var view = new View(new MainForm());
             var controller = new Controller(view, model);
             Application.Run(view.MainForm);
         }

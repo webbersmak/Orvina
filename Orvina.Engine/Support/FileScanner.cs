@@ -7,7 +7,7 @@ namespace Orvina.Engine.Support
 {
     internal class FileScanner
     {
-        public bool stop;
+        public volatile bool stop;
         public TextBytes.SearchText searchText;
 
         public List<LineResult> ScanFile(ReadOnlySpan<byte> data)

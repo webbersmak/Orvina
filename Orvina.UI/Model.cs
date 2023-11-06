@@ -5,44 +5,37 @@ namespace Orvina.UI
     internal class Model
     {
         private bool _searching;
+        private bool caseSensitive;
         private string directory;
         private string files;
-        private string searchText;
-
         private bool foldersOnly;
         private bool hddmode;
+        private SearchEngine search;
+        private string searchText;
+        public Model()
+        {
+            var settings = UserSettings.UserSettings.Instance;
+            directory = settings.Directories[0];
+            searchText = settings.SearchTexts[0];
+            files = settings.FileTypes[0];
+            foldersOnly = settings.FoldersOnly;
+            hddmode = settings.HDDMode;
+            caseSensitive = settings.CaseSensitive;
+        }
+
+        public event Action OnCaseSensitiveChanged;
 
         public event Action OnDirectoryChanged;
 
         public event Action OnFilesChanged;
 
+        public event Action OnFoldersOnlyChanged;
+
+        public event Action OnHDDModeChanged;
+
         public event Action OnIsSearchingChanged;
 
         public event Action OnTextChanged;
-
-        private SearchEngine search;
-
-        public bool FoldersOnly
-        {
-            get
-            {
-                return foldersOnly;
-            }
-            set
-            {
-                if (!IsSearching)
-                {
-                    foldersOnly = value;
-                }
-                OnFoldersOnlyChanged();
-            }
-        }
-
-        public event Action OnFoldersOnlyChanged;
-        public event Action OnHDDModeChanged;
-        public event Action OnCaseSensitiveChanged;
-        private bool caseSensitive;
-
         public bool CaseSensitive
         {
             get
@@ -58,35 +51,6 @@ namespace Orvina.UI
                 OnCaseSensitiveChanged();
             }
         }
-
-        public bool HDDMode
-        {
-            get
-            {
-                return hddmode;
-            }
-            set
-            {
-                if (!IsSearching)
-                {
-                    hddmode = value;
-                }
-                OnHDDModeChanged();
-            }
-        }
-
-        public Model()
-        {
-            var settings = UserSettings.UserSettings.Instance;
-            directory = settings.Directories[0];
-            searchText = settings.SearchTexts[0]; 
-            files = settings.FileTypes[0];
-            foldersOnly = settings.FoldersOnly;
-            hddmode = settings.HDDMode;
-            caseSensitive = settings.CaseSensitive;
-        }
-
-        public bool Error { get; private set; }
 
         public string Directory
         {
@@ -105,6 +69,8 @@ namespace Orvina.UI
             }
         }
 
+        public Dictionary<string, List<SearchEngine.LineResult>> FileResults { get; private set; } = new();
+
         public string Files
         {
             get
@@ -121,6 +87,36 @@ namespace Orvina.UI
             }
         }
 
+        public bool FoldersOnly
+        {
+            get
+            {
+                return foldersOnly;
+            }
+            set
+            {
+                if (!IsSearching)
+                {
+                    foldersOnly = value;
+                }
+                OnFoldersOnlyChanged();
+            }
+        }
+        public bool HDDMode
+        {
+            get
+            {
+                return hddmode;
+            }
+            set
+            {
+                if (!IsSearching)
+                {
+                    hddmode = value;
+                }
+                OnHDDModeChanged();
+            }
+        }
         public bool IsSearching
         {
             get
@@ -130,11 +126,6 @@ namespace Orvina.UI
             private set
             {
                 _searching = value;
-                if (value)
-                {
-                    Error = false;
-                    fileResults.Clear();
-                }
                 OnIsSearchingChanged();
             }
         }
@@ -164,6 +155,8 @@ namespace Orvina.UI
         {
             if (IsSearching)
                 return;
+
+            FileResults.Clear();
 
             //handle user settings
             var settings = UserSettings.UserSettings.Instance;
@@ -202,10 +195,11 @@ namespace Orvina.UI
             //////////////////
 
             IsSearching = true;
+            search?.Dispose();
             search = new SearchEngine();
+
             search.OnSearchComplete += Search_OnSearchComplete;
             search.OnFileFound += Search_OnFileFound;
-            search.OnError += Search_OnError;
 
             try
             {
@@ -222,32 +216,21 @@ namespace Orvina.UI
             {
                 search.OnSearchComplete -= Search_OnSearchComplete;
                 search.OnFileFound -= Search_OnFileFound;
-                search.OnError -= Search_OnError;
+                IsSearching = false;
             }
+
         }
 
-        private void Search_OnError(string obj)
+        private void Search_OnFileFound(string arg1, List<SearchEngine.LineResult> arg2)
         {
-            search.OnSearchComplete -= Search_OnSearchComplete;
-            search.OnFileFound -= Search_OnFileFound;
-            search.OnError -= Search_OnError;
-            Error = true;
-            IsSearching = false;
+            FileResults.Add(arg1, arg2);
         }
 
         private void Search_OnSearchComplete()
         {
             search.OnSearchComplete -= Search_OnSearchComplete;
             search.OnFileFound -= Search_OnFileFound;
-            search.OnError -= Search_OnError;
             IsSearching = false;
         }
-
-        private void Search_OnFileFound(string arg1, List<SearchEngine.LineResult> arg2)
-        {
-            fileResults.Add(arg1, arg2);
-        }
-
-        public Dictionary<string, List<SearchEngine.LineResult>> fileResults { get; private set; } = new();
     }
 }

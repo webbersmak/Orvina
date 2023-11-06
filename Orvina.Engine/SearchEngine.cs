@@ -28,7 +28,7 @@ namespace Orvina.Engine
         private bool raiseProgress;
 
         private SpinLock runnerListLock = new();
-        private bool stop;
+        private volatile bool stop;
         private int totalQueueCount;
         private SpinLock tractorLock = new();
 
