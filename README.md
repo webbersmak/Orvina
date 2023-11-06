@@ -1,8 +1,9 @@
 # Orvina - A High Performance Text Search Utility
 
-> <span style="font-size: 24px;">"No matter how the sands arrange, her path prevails."</span>
+> <span style="font-size: 28px;">"No matter how the sands arrange, her path prevails."</span>
 > 
-> ![orvina.jpg](/orvina.jpg)
+> ![orvina.jpg](/orvina.jpg){: width="256" }
+
 
 ## Introduction
 
