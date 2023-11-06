@@ -1,11 +1,10 @@
 # Orvina - A High Performance Text Search Utility
 
-> <div style="font-size: 32px;margin-bottom:1rem;">
->   <strong>"No matter how the sands arrange, her path prevails."</strong>
-> </div>
-> 
-> 
-> <img src="/orvina.jpg" width=256>
+> <br>
+> <strong>"No matter how the sands arrange, her path prevails."</strong>
+> <br><br>
+> <img src="/orvina.jpg" width=256> 
+> <br><br>
 
 
 ## Introduction
