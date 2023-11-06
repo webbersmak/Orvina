@@ -1,6 +1,6 @@
 # Orvina - A High Performance Text Search Utility
 
-> ## "No matter how the sands arrange, her path prevails."
+> <strong style="font-size:24px;">"No matter how the sands arrange, her path prevails."</strong>
 > 
 > <img src="/orvina.jpg" width=256>
 
