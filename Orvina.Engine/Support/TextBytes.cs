@@ -57,6 +57,7 @@
         {
             for (var i = lastIdx; i <= upToIndex && i < data.Length; i++)
             {
+                lastIdx = i;
                 if (data[i] == newLine)
                     count++;
             }
