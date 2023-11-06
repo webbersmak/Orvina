@@ -2,7 +2,7 @@
 
 > <span style="font-size: 28px;">"No matter how the sands arrange, her path prevails."</span>
 > 
-> ![orvina.jpg](/orvina.jpg){: width="256" }
+> <img src="/orvina.jpg" width=256>
 
 
 ## Introduction
