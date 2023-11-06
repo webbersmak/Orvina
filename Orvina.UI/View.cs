@@ -283,7 +283,7 @@ namespace Orvina.UI
                 foreach (var entry in greenTextMap)
                 {
                     MainForm.richTextBox1.Select(entry.Key, entry.Value);
-                    MainForm.richTextBox1.SelectionColor = Color.ForestGreen;
+                    MainForm.richTextBox1.SelectionColor = Color.LimeGreen;
                 }
 
                 MainForm.richTextBox1.SelectionLength = 0;
